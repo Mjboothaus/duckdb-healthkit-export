@@ -57,14 +57,14 @@ target_include_directories(${EXTENSION_NAME} PRIVATE src src/include)
 target_include_directories(${EXTENSION_NAME} PRIVATE duckdb_capi)
 
 # zlib for zip_source (DEFLATE members in export.zip).
-# On Apple, force SDK/system libz and ignore vcpkg_installed (wrong arch when
-# cross-building osx_amd64 on arm64 runners). Windows CI uses vcpkg.json → zlib.
+# On Apple, link the compiler's default -lz (SDK multi-arch). Do not use
+# find_package(ZLIB): with a vcpkg toolchain it still prefers vcpkg's
+# arch-specific static libz and breaks osx_amd64 cross-builds on arm64 hosts.
+# Windows CI uses vcpkg.json → zlib via find_package.
 if(APPLE)
-	# MODULE mode uses FindZLIB.cmake (SDK/system), not vcpkg's ZLIBConfig.cmake
-	# which can be the wrong arch on macos-15 arm64 hosts building osx_amd64.
-	find_package(ZLIB REQUIRED MODULE)
-	message(STATUS "Apple zlib (module): ${ZLIB_LIBRARIES} include=${ZLIB_INCLUDE_DIRS}")
+	target_link_libraries(${EXTENSION_NAME} PRIVATE z)
+	message(STATUS "Apple zlib: linking -lz (system/SDK)")
 else()
 	find_package(ZLIB REQUIRED)
+	target_link_libraries(${EXTENSION_NAME} PRIVATE ZLIB::ZLIB)
 endif()
-target_link_libraries(${EXTENSION_NAME} PRIVATE ZLIB::ZLIB)
