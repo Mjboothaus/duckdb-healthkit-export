@@ -56,6 +56,37 @@ target_include_directories(${EXTENSION_NAME} PRIVATE src src/include)
 # Include DuckDB C API headers
 target_include_directories(${EXTENSION_NAME} PRIVATE duckdb_capi)
 
-# zlib for zip_source (DEFLATE members in export.zip)
-find_package(ZLIB REQUIRED)
+# zlib for zip_source (DEFLATE members in export.zip).
+# On Apple, prefer the SDK/system libz so osx_amd64 cross-builds on arm64 runners
+# do not link a mismatched vcpkg arch. Windows CI still uses vcpkg.json → zlib.
+if(APPLE)
+	find_path(AH_ZLIB_INCLUDE_DIR zlib.h
+		PATHS
+			"${CMAKE_OSX_SYSROOT}/usr/include"
+			/usr/include
+			/opt/homebrew/include
+			/usr/local/include
+		NO_DEFAULT_PATH
+	)
+	find_library(AH_ZLIB_LIBRARY z
+		PATHS
+			"${CMAKE_OSX_SYSROOT}/usr/lib"
+			/usr/lib
+			/opt/homebrew/lib
+			/usr/local/lib
+		NO_DEFAULT_PATH
+	)
+	if(AH_ZLIB_INCLUDE_DIR AND AH_ZLIB_LIBRARY)
+		add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
+		set_target_properties(ZLIB::ZLIB PROPERTIES
+			IMPORTED_LOCATION "${AH_ZLIB_LIBRARY}"
+			INTERFACE_INCLUDE_DIRECTORIES "${AH_ZLIB_INCLUDE_DIR}"
+		)
+		message(STATUS "Using system zlib: ${AH_ZLIB_LIBRARY}")
+	else()
+		find_package(ZLIB REQUIRED)
+	endif()
+else()
+	find_package(ZLIB REQUIRED)
+endif()
 target_link_libraries(${EXTENSION_NAME} PRIVATE ZLIB::ZLIB)
