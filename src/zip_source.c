@@ -6,7 +6,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <io.h>
+#ifndef S_ISDIR
+#define S_ISDIR(m) (((m) & _S_IFMT) == _S_IFDIR)
+#endif
+#define AH_UNLINK _unlink
+#else
 #include <unistd.h>
+#define AH_UNLINK unlink
+#endif
 
 #include <zlib.h>
 
@@ -163,8 +175,36 @@ static int find_end_of_central_dir(FILE *fp, zip_end_record *out) {
 	return found;
 }
 
-static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t uncomp_size, uint16_t method,
-                                    char **temp_path_out, char *err, size_t err_len) {
+/* Create a writable temp file; *path_out receives heap path for later AH_UNLINK. */
+static FILE *ah_open_temp_rw(char **path_out, char *err, size_t err_len) {
+	*path_out = NULL;
+#ifdef _WIN32
+	char dir[MAX_PATH];
+	char path[MAX_PATH];
+	DWORD n = GetTempPathA((DWORD)sizeof(dir), dir);
+	if (n == 0 || n >= sizeof(dir)) {
+		set_err(err, err_len, "GetTempPath failed");
+		return NULL;
+	}
+	if (GetTempFileNameA(dir, "ahx", 0, path) == 0) {
+		set_err(err, err_len, "GetTempFileName failed");
+		return NULL;
+	}
+	FILE *out = fopen(path, "w+b");
+	if (!out) {
+		AH_UNLINK(path);
+		set_err(err, err_len, "temp fopen failed");
+		return NULL;
+	}
+	*path_out = _strdup(path);
+	if (!*path_out) {
+		fclose(out);
+		AH_UNLINK(path);
+		set_err(err, err_len, "out of memory");
+		return NULL;
+	}
+	return out;
+#else
 	char tmpl[] = "/tmp/ah_export_XXXXXX";
 	int fd = mkstemp(tmpl);
 	if (fd < 0) {
@@ -174,8 +214,26 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 	FILE *out = fdopen(fd, "w+b");
 	if (!out) {
 		close(fd);
-		unlink(tmpl);
+		AH_UNLINK(tmpl);
 		set_err(err, err_len, "fdopen failed");
+		return NULL;
+	}
+	*path_out = strdup(tmpl);
+	if (!*path_out) {
+		fclose(out);
+		AH_UNLINK(tmpl);
+		set_err(err, err_len, "out of memory");
+		return NULL;
+	}
+	return out;
+#endif
+}
+
+static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t uncomp_size, uint16_t method,
+                                    char **temp_path_out, char *err, size_t err_len) {
+	char *tmpl = NULL;
+	FILE *out = ah_open_temp_rw(&tmpl, err, err_len);
+	if (!out) {
 		return NULL;
 	}
 
@@ -187,13 +245,15 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 			size_t n = left > sizeof(buf) ? sizeof(buf) : left;
 			if (!read_fully(zip_fp, buf, n)) {
 				fclose(out);
-				unlink(tmpl);
+				AH_UNLINK(tmpl);
+				free(tmpl);
 				set_err(err, err_len, "zip read failed (stored)");
 				return NULL;
 			}
 			if (fwrite(buf, 1, n, out) != n) {
 				fclose(out);
-				unlink(tmpl);
+				AH_UNLINK(tmpl);
+				free(tmpl);
 				set_err(err, err_len, "temp write failed");
 				return NULL;
 			}
@@ -205,7 +265,8 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 		/* raw deflate (no zlib wrapper) — ZIP uses -MAX_WBITS */
 		if (inflateInit2(&strm, -MAX_WBITS) != Z_OK) {
 			fclose(out);
-			unlink(tmpl);
+			AH_UNLINK(tmpl);
+			free(tmpl);
 			set_err(err, err_len, "inflateInit2 failed");
 			return NULL;
 		}
@@ -223,7 +284,8 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 				if (!read_fully(zip_fp, in, n)) {
 					inflateEnd(&strm);
 					fclose(out);
-					unlink(tmpl);
+					AH_UNLINK(tmpl);
+					free(tmpl);
 					set_err(err, err_len, "zip read failed (deflate)");
 					return NULL;
 				}
@@ -239,7 +301,8 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 			if (have && fwrite(outbuf, 1, have, out) != have) {
 				inflateEnd(&strm);
 				fclose(out);
-				unlink(tmpl);
+				AH_UNLINK(tmpl);
+				free(tmpl);
 				set_err(err, err_len, "temp write failed");
 				return NULL;
 			}
@@ -255,7 +318,8 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 				if (have == 0 && left == 0 && strm.avail_in == 0) {
 					inflateEnd(&strm);
 					fclose(out);
-					unlink(tmpl);
+					AH_UNLINK(tmpl);
+					free(tmpl);
 					set_err(err, err_len, "inflate incomplete (buf error)");
 					return NULL;
 				}
@@ -263,7 +327,8 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 			}
 			inflateEnd(&strm);
 			fclose(out);
-			unlink(tmpl);
+			AH_UNLINK(tmpl);
+			free(tmpl);
 			set_err(err, err_len, "inflate failed");
 			return NULL;
 		}
@@ -271,30 +336,35 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 		inflateEnd(&strm);
 		if (!reached_end) {
 			fclose(out);
-			unlink(tmpl);
+			AH_UNLINK(tmpl);
+			free(tmpl);
 			set_err(err, err_len, "inflate missing stream end");
 			return NULL;
 		}
 		if (uncomp_size != 0 && total_out != (uLong)uncomp_size) {
 			fclose(out);
-			unlink(tmpl);
+			AH_UNLINK(tmpl);
+			free(tmpl);
 			set_err(err, err_len, "inflate size mismatch vs zip directory");
 			return NULL;
 		}
 	} else {
 		fclose(out);
-		unlink(tmpl);
+		AH_UNLINK(tmpl);
+		free(tmpl);
 		set_err(err, err_len, "unsupported zip compression method");
 		return NULL;
 	}
 
 	if (fflush(out) != 0 || fseek(out, 0, SEEK_SET) != 0) {
 		fclose(out);
-		unlink(tmpl);
+		AH_UNLINK(tmpl);
+		free(tmpl);
 		set_err(err, err_len, "temp rewind failed");
 		return NULL;
 	}
-	*temp_path_out = strdup(tmpl);
+	*temp_path_out = tmpl;
+	tmpl = NULL; /* ownership transferred */
 	return out;
 }
 
@@ -435,7 +505,7 @@ static ah_xml_source *open_zip_matching(const char *path, int (*match)(const cha
 	if (!src) {
 		fclose(xml_fp);
 		if (temp_path) {
-			unlink(temp_path);
+			AH_UNLINK(temp_path);
 			free(temp_path);
 		}
 		free(member_name);
@@ -513,7 +583,7 @@ void ah_xml_source_close(ah_xml_source *src) {
 		fclose(src->fp);
 	}
 	if (src->temp_path) {
-		unlink(src->temp_path);
+		AH_UNLINK(src->temp_path);
 		free(src->temp_path);
 	}
 	free(src->filename);
