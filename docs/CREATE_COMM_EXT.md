@@ -11,10 +11,10 @@ LOAD healthkit_export;
 ```
 
 - First listing (name **`apple_health`**, superseded): https://github.com/duckdb/community-extensions/pull/2653
-- Current package name: **`healthkit_export`** (v**0.2.0**, C API stamp **v1.2.0**)
+- Current package name: **`healthkit_export`** (v**0.3.0**, C API stamp **v1.2.0**)
 - Descriptor path: `extensions/healthkit_export/description.yml`
-- Platforms: **`osx_arm64`**, **`osx_amd64`** for DuckDB **v1.5.5**
-- Linux / Windows / Wasm: still excluded until multi-platform CI is widened
+- Platforms: **native** macOS / Linux / Windows for DuckDB **v1.5.5**
+- **Wasm** excluded (roadmap — large exports + memory model)
 
 Related: [DESIGN.md](DESIGN.md) · [RELEASE_PLAN.md](RELEASE_PLAN.md) · [VERSIONING.md](VERSIONING.md) · [ROADMAP.md](ROADMAP.md).
 
@@ -26,7 +26,7 @@ Related: [DESIGN.md](DESIGN.md) · [RELEASE_PLAN.md](RELEASE_PLAN.md) · [VERSIO
 |--|--|
 | Branding fix PR | [#2685](https://github.com/duckdb/community-extensions/pull/2685) **merged** — `healthkit_export` live; `apple_health` listing removed |
 | First listing (superseded) | [#2653](https://github.com/duckdb/community-extensions/pull/2653) briefly used id `apple_health` |
-| Current name | **`healthkit_export`** (v0.2.0) |
+| Current name | **`healthkit_export`** (v0.3.0) |
 | CDN (example) | `https://community-extensions.duckdb.org/v1.5.5/osx_arm64/healthkit_export.duckdb_extension.gz` |
 | Verified | `INSTALL` / `LOAD` + fixture queries on DuckDB **1.5.5** (macOS arm64) |
 

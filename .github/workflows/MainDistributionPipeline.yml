@@ -1,6 +1,6 @@
 #
 # Build/test extension binaries via DuckDB extension-ci-tools.
-# macOS only for now (matches community publish intent).
+# Native desktop platforms (macOS / Linux / Windows). Wasm deferred — see ROADMAP.
 #
 name: Main Extension Distribution Pipeline
 on:
@@ -20,13 +20,10 @@ jobs:
     with:
       # DuckDB *release* used to compile/test (not the C extension API stamp).
       # Makefile TARGET_DUCKDB_VERSION stays at v1.2.0 (stable C API metadata).
-      # Align with community-extensions DUCKDB_LATEST_STABLE.
       duckdb_version: v1.5.5
       ci_tools_version: v1.5-variegata
       extension_name: healthkit_export
       extra_toolchains: python3
-      # Skip non-macOS matrix entries (linux / windows / wasm)
-      exclude_archs: >-
-        linux_amd64;linux_arm64;linux_amd64_musl;linux_arm64_musl;
-        windows_amd64;windows_arm64;windows_amd64_mingw;windows_amd64_rtools;
-        wasm_mvp;wasm_eh;wasm_threads
+      # Health app export.zip is a portable file — native OS builds only.
+      # Wasm excluded: large exports + bind-time buffering are a poor browser fit (ROADMAP).
+      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads"
