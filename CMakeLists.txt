@@ -57,35 +57,13 @@ target_include_directories(${EXTENSION_NAME} PRIVATE src src/include)
 target_include_directories(${EXTENSION_NAME} PRIVATE duckdb_capi)
 
 # zlib for zip_source (DEFLATE members in export.zip).
-# On Apple, prefer the SDK/system libz so osx_amd64 cross-builds on arm64 runners
-# do not link a mismatched vcpkg arch. Windows CI still uses vcpkg.json → zlib.
+# On Apple, force SDK/system libz and ignore vcpkg_installed (wrong arch when
+# cross-building osx_amd64 on arm64 runners). Windows CI uses vcpkg.json → zlib.
 if(APPLE)
-	find_path(AH_ZLIB_INCLUDE_DIR zlib.h
-		PATHS
-			"${CMAKE_OSX_SYSROOT}/usr/include"
-			/usr/include
-			/opt/homebrew/include
-			/usr/local/include
-		NO_DEFAULT_PATH
-	)
-	find_library(AH_ZLIB_LIBRARY z
-		PATHS
-			"${CMAKE_OSX_SYSROOT}/usr/lib"
-			/usr/lib
-			/opt/homebrew/lib
-			/usr/local/lib
-		NO_DEFAULT_PATH
-	)
-	if(AH_ZLIB_INCLUDE_DIR AND AH_ZLIB_LIBRARY)
-		add_library(ZLIB::ZLIB UNKNOWN IMPORTED)
-		set_target_properties(ZLIB::ZLIB PROPERTIES
-			IMPORTED_LOCATION "${AH_ZLIB_LIBRARY}"
-			INTERFACE_INCLUDE_DIRECTORIES "${AH_ZLIB_INCLUDE_DIR}"
-		)
-		message(STATUS "Using system zlib: ${AH_ZLIB_LIBRARY}")
-	else()
-		find_package(ZLIB REQUIRED)
-	endif()
+	# MODULE mode uses FindZLIB.cmake (SDK/system), not vcpkg's ZLIBConfig.cmake
+	# which can be the wrong arch on macos-15 arm64 hosts building osx_amd64.
+	find_package(ZLIB REQUIRED MODULE)
+	message(STATUS "Apple zlib (module): ${ZLIB_LIBRARIES} include=${ZLIB_INCLUDE_DIRS}")
 else()
 	find_package(ZLIB REQUIRED)
 endif()
