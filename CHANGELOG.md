@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.1] — 2026-09-19
+
+### Fixed
+- Windows (and other vcpkg CI) builds: add `vcpkg.json` with **zlib** so CMake `find_package(ZLIB)` succeeds.
+
 ## [0.3.0] — 2026-09-19
 
 ### Added
@@ -101,7 +106,8 @@ First public **developer beta**.
 
 Full notes: [RELEASE_NOTES.md](docs/RELEASE_NOTES.md).
 
-[Unreleased]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.1.0...v0.1.1
