@@ -1,4 +1,4 @@
-"""Local DuckDB access and (re)build from an Apple Health export."""
+"""Local DuckDB access and (re)build from an Health app export."""
 
 from __future__ import annotations
 

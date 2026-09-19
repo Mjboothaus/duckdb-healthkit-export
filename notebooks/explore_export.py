@@ -8,7 +8,7 @@
 #     "polars",
 # ]
 # ///
-"""Explore an Apple Health export.zip via the apple_health DuckDB extension.
+"""Explore an Health app export.zip via the apple_health DuckDB extension.
 
 Loads **community** ``healthkit_export`` when available (DuckDB 1.5.5+, macOS),
 with fallback to a local unsigned ``just debug`` / ``just release`` build.
@@ -77,9 +77,9 @@ def _(Path, mo):
         [
             mo.md(
                 """
-    # Apple Health × DuckDB
+    # HealthKit export × DuckDB
 
-    Interactive scan of an Apple Health export through the **`healthkit_export`**
+    Interactive scan of an Health app export through the **`healthkit_export`**
     community extension (falls back to a local unsigned build if needed).
 
     For **walk / hike GPS maps**, use the separate notebook `notebooks/map_walks.py` (`just map-walks`).

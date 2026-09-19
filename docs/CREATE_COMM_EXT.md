@@ -24,7 +24,8 @@ Related: [DESIGN.md](DESIGN.md) · [RELEASE_PLAN.md](RELEASE_PLAN.md) · [VERSIO
 
 | | |
 |--|--|
-| First community PR | [#2653](https://github.com/duckdb/community-extensions/pull/2653) published `apple_health` (superseded by rename) |
+| Branding fix PR | [#2685](https://github.com/duckdb/community-extensions/pull/2685) **merged** — `healthkit_export` live; `apple_health` listing removed |
+| First listing (superseded) | [#2653](https://github.com/duckdb/community-extensions/pull/2653) briefly used id `apple_health` |
 | Current name | **`healthkit_export`** (v0.2.0) |
 | CDN (example) | `https://community-extensions.duckdb.org/v1.5.5/osx_arm64/healthkit_export.duckdb_extension.gz` |
 | Verified | `INSTALL` / `LOAD` + fixture queries on DuckDB **1.5.5** (macOS arm64) |
@@ -108,7 +109,7 @@ File location in the **community-extensions** fork:
 extension:
   name: healthkit_export
   description: >
-    Read Apple Health export.zip / export.xml as typed DuckDB tables
+    Read Health app export.zip / export.xml as typed DuckDB tables
     (records, workouts, activity summaries, workout routes and GPX points).
   version: 0.1.0
   language: C

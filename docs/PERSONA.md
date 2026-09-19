@@ -8,7 +8,7 @@ Last updated: 2026-09-12.
 
 One-line positioning:
 
-> Your Apple Health export → local SQL (and, if you want, maps and walk stories) — data never required to leave your machine.
+> Your Health app export → local SQL (and, if you want, maps and walk stories) — data never required to leave your machine.
 
 ## Primary persona
 

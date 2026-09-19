@@ -1,6 +1,6 @@
 # Data model (export → scanner → local DuckDB)
 
-How an Apple Health **export.zip** becomes tables you can query and map.
+How a Health app **export.zip** becomes tables you can query and map.
 
 See also: [DESIGN.md](DESIGN.md), [ROADMAP.md](ROADMAP.md).
 
@@ -225,7 +225,7 @@ python/healthkit_store/
 
 ### Start / end place names
 
-Apple Health does **not** store suburb/street labels on workouts. Derive them:
+The Health app export does **not** store suburb/street labels on workouts. Derive them:
 
 1. Take first/last GPS point per `gpx_path` (`HealthkitStore.route_endpoints`).
 2. Reverse-geocode with OpenStreetMap **Nominatim** (free, no key) via `enrich_with_places`.

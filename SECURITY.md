@@ -10,7 +10,7 @@
 
 ## Handling Health data
 
-Apple Health exports can contain highly sensitive personal information.
+Health app exports can contain highly sensitive personal information.
 
 - Do **not** commit real `export.zip` / `export.xml` files to git
 - Do **not** paste PHI into GitHub issues, PRs, or CI logs
@@ -35,3 +35,7 @@ If you believe you have found a security issue in this repository (for example p
 ## Supported versions
 
 Only the latest **v0.1.x-beta** line on `main` is actively maintained until a stable release exists.
+
+## Trademarks
+
+Not affiliated with, endorsed by, or sponsored by Apple Inc. Apple, Apple Health, and HealthKit are trademarks of Apple Inc. See [docs/BRANDING.md](docs/BRANDING.md).

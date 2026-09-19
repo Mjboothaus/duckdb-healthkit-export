@@ -62,7 +62,7 @@ Raw XML scan is intentionally the **slow path**; Parquet / local DuckDB is the *
 
 ## Explicit non-goals (for now)
 
-- Replacing Apple Health or clinical decision support
+- Replacing the Health app or clinical decision support
 - Shipping personal exports, Photos libraries, or map HTML with PII in git
 - Supporting every HealthKit type edge-case in v0.1
 - Requiring Python to use the extension

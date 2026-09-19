@@ -2,7 +2,7 @@
 
 **v0.2.0** — Health app / HealthKit `export.zip` → DuckDB SQL, in-process.
 
-DuckDB **scanner** extension **`healthkit_export`**: reads exports produced by the Apple Health app (HealthKit `export.zip` / `export.xml`) as typed tables. Written in **C** on the **stable C API**. Community publish on **macOS** (DuckDB **1.5.5+**) is being updated to this name — see [CREATE_COMM_EXT.md](docs/CREATE_COMM_EXT.md).
+DuckDB **scanner** extension **`healthkit_export`**: reads exports produced by the Health app (HealthKit `export.zip` / `export.xml`) as typed tables. Written in **C** on the **stable C API**. Published as a **[community extension](https://duckdb.org/community_extensions/)** on **macOS** (DuckDB **1.5.5+**). See [CREATE_COMM_EXT.md](docs/CREATE_COMM_EXT.md) and [BRANDING.md](docs/BRANDING.md).
 
 > **Not affiliated with, endorsed by, or sponsored by Apple Inc.** Apple, Apple Health, and HealthKit are trademarks of Apple Inc.
 
@@ -66,7 +66,7 @@ This project fills the gap between those: **HealthKit-aware, in-process SQL** ai
 |---|---|
 | Extension name | **`healthkit_export`** (renamed from short-lived `apple_health` community id) |
 | Version | **v0.2.0** |
-| Install | **`INSTALL healthkit_export FROM community`** on **macOS** once the rename listing lands; until then use a local unsigned build |
+| Install | **`INSTALL healthkit_export FROM community`** on **macOS** (DuckDB **1.5.5+**) — [community-extensions#2685](https://github.com/duckdb/community-extensions/pull/2685) |
 | First community listing | [PR #2653](https://github.com/duckdb/community-extensions/pull/2653) published **`apple_health`** briefly — **use `healthkit_export` going forward** |
 | Platforms | Community target: **macOS only** for now |
 | DuckDB | Host **1.5.5+**; local unsigned builds for development |
@@ -239,6 +239,7 @@ Apache-2.0. Maintained by [mjboothaus](https://github.com/mjboothaus).
 ## Related
 
 - Docs index: [docs/README.md](docs/README.md)
+- Branding / trademarks: [BRANDING.md](docs/BRANDING.md)
 - Quick start: [QUICKSTART.md](docs/QUICKSTART.md)
 - Design & rules: [DESIGN.md](docs/DESIGN.md)
 - Data model (ERD / local DB): [docs/ERD.md](docs/ERD.md)

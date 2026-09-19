@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/* Streaming Apple Health export.xml parser. No DuckDB headers. */
+/* Streaming Health app export.xml parser. No DuckDB headers. */
 
 #define AH_ATTR_MAX 512
 #define AH_TYPE_MAX 128
@@ -114,7 +114,7 @@ int ah_parse_xml_filep(FILE *fp, const ah_parse_callbacks *cb, ah_parse_stats *s
 /* Helpers also used by tests / later DuckDB glue. */
 void ah_type_short(const char *type_id, char *out, size_t out_len);
 bool ah_parse_double(const char *text, double *out);
-/* Apple Health date: "yyyy-MM-dd HH:mm:ss Z" with Z like +1100 / -0800 / +0530.
+/* HealthKit export date: "yyyy-MM-dd HH:mm:ss Z" with Z like +1100 / -0800 / +0530.
    On success writes normalised copy to out (may equal input shape) and optional
    UTC epoch microseconds. Returns false on hard failure. */
 bool ah_parse_apple_date(const char *text, char *out, size_t out_len, int64_t *utc_micros_out);

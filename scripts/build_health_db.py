@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI: build output/healthkit_store.duckdb from an Apple Health export."""
+"""CLI: build output/healthkit_store.duckdb from an Health app export."""
 
 from __future__ import annotations
 

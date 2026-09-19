@@ -71,7 +71,7 @@ static void on_summary(const ah_activity_summary *row, void *userdata) {
 static void usage(const char *argv0) {
 	fprintf(stderr, "Usage: %s <export.xml|export.zip|export-dir>\n", argv0);
 	fprintf(stderr,
-	        "Streams Apple Health export; prints top-level Record rows as CSV.\n"
+	        "Streams Health app export; prints top-level Record rows as CSV.\n"
 	        "Path may be export.xml, a zip containing **/export.xml, or a directory with export.xml.\n");
 }
 

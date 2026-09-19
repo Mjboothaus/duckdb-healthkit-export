@@ -13,7 +13,7 @@ Decisions in this file override older chat notes. Last updated: 2026-08-29.
 
 ## Project in one paragraph
 
-DuckDB **scanner** extension: stream Apple Health `export.zip` / `export.xml` into SQL tables.
+DuckDB **scanner** extension: stream HealthKit-format `export.zip` / `export.xml` into SQL tables.
 Language: **C**. ABI: DuckDB **stable C API** only (no `duckdb.hpp`, no unstable C++ extension template).
 Load **unsigned** until 2.0 GA + community C-API CI exist.
 Python is for fixtures and tests only. Rust/Mojo out of scope.
@@ -170,7 +170,7 @@ FROM read_healthkit_export('test/data/export.zip');
 
 - **Golden fixture:** 7 top-level records; sleep uses `value_text`; non-ASCII `Café Run Club`; BP also nested under Correlation (must not double-count).
 - **vs healthkit-to-sqlite:** compare top-level multisets; expect HK total records = ours + nested Correlation children when those exist.
-- **Real exports:** keep outside git; optional `APPLE_HEALTH_EXPORT_ZIP` for slow pytest.
+- **Real exports:** keep outside git; optional `HEALTHKIT_EXPORT_ZIP` for slow pytest.
 
 ---
 

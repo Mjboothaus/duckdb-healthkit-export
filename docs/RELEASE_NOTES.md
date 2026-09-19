@@ -46,7 +46,7 @@ Linux/Windows/Wasm community binaries, streaming execute, named scan filters —
 
 ## v0.1.0 — core extension (2026-09-06)
 
-**Layer A freeze.** First numbered core release of the DuckDB Apple Health **scanner** (C, stable C API).
+**Layer A freeze.** First numbered core release of the DuckDB HealthKit-export **scanner** (C, stable C API).
 
 ### Table functions
 

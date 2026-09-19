@@ -183,9 +183,9 @@ def test_activity_summary_matches_hk(con, fixture_xml, hk_conn):
 
 @pytest.mark.slow
 def test_optional_real_export_counts_finite(con, real_export_zip):
-    """Optional: APPLE_HEALTH_EXPORT_ZIP=/path/to/export.zip pytest -m slow"""
+    """Optional: HEALTHKIT_EXPORT_ZIP=/path/to/export.zip pytest -m slow"""
     if real_export_zip is None:
-        pytest.skip("Set APPLE_HEALTH_EXPORT_ZIP to run real-export checks")
+        pytest.skip("Set HEALTHKIT_EXPORT_ZIP to run real-export checks")
     n = con.execute(
         f"SELECT count(*) FROM read_healthkit_export('{sql_path(real_export_zip)}')"
     ).fetchone()[0]

@@ -215,7 +215,7 @@ static FILE *inflate_member_to_temp(FILE *zip_fp, uint32_t comp_size, uint32_t u
 		uLong total_out = 0;
 		int reached_end = 0;
 		/* Must reach Z_STREAM_END. Do not stop on Z_BUF_ERROR when the output
-		 * buffer fills — that truncated real Apple Health zips (~12 KiB short).
+		 * buffer fills — that truncated real Health app export zips (~12 KiB short).
 		 * Data-descriptor members still supply sizes via the central directory. */
 		for (;;) {
 			if (strm.avail_in == 0 && left > 0) {

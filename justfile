@@ -223,4 +223,4 @@ pytest-ext: ensure-ext fixture
 
 # Optional slow real-export compare (path outside repo)
 pytest-ext-real export_zip: ensure-ext
-    APPLE_HEALTH_EXPORT_ZIP={{export_zip}} uv run --project . --extra dev --group dev pytest tests/test_compare_healthkit_to_sqlite.py -q -k real
+    HEALTHKIT_EXPORT_ZIP={{export_zip}} uv run --project . --extra dev --group dev pytest tests/test_compare_healthkit_to_sqlite.py -q -k real
