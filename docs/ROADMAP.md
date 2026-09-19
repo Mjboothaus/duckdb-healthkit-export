@@ -60,6 +60,13 @@ Raw XML scan is intentionally the **slow path**; Parquet / local DuckDB is the *
 - Clinical / ECG depth only if fixture + tests exist
 - Optional: publish supplementary Python package
 
+
+## Platforms
+
+- [x] macOS (`osx_arm64`, `osx_amd64`) — initial community publish
+- [x] Linux / Windows native — v0.3.0 (export.zip is OS-agnostic)
+- [ ] **Wasm / browser** — deferred. Real Health exports are large; the scanner still buffers in bind (high RAM). Revisit after streaming execute. Demo/fixture-only Wasm may come first.
+
 ## Explicit non-goals (for now)
 
 - Replacing the Health app or clinical decision support

@@ -14,7 +14,7 @@ Multi-GB zips are normal. **Do not commit a real export to git.**
 
 ## 2. Install (community — preferred)
 
-Needs DuckDB CLI **1.5.5+** on **macOS** (`osx_arm64` or `osx_amd64`).
+Needs DuckDB CLI **1.5.5+** on **macOS, Linux, or Windows** (`osx_arm64` or `osx_amd64`).
 
 ```sql
 INSTALL healthkit_export FROM community;
@@ -140,7 +140,7 @@ Non-macOS community binaries, Wasm, ECG, clinical records, bind-time progress ba
 
 | Symptom | Check |
 |---|---|
-| Community `INSTALL` HTTP 404 | Upgrade to DuckDB **1.5.5+**; binaries are macOS-only today |
+| Community `INSTALL` HTTP 404 | Upgrade to DuckDB **1.5.5+**; Wasm is not published yet; use a native DuckDB build |
 | `LOAD` refuses a local file | `duckdb -unsigned`; find the `.duckdb_extension` under `build/` |
 | File not found (local build) | `find build -name '*.duckdb_extension'` |
 | Slow / large RAM on big zip | Filter in SQL and `COPY` to Parquet; see [ROADMAP.md](ROADMAP.md) |

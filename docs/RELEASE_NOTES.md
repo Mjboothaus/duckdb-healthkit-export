@@ -1,5 +1,31 @@
 # Release notes
 
+## v0.3.0 — multi-platform native builds (2026-09-19)
+
+**Platforms.** `healthkit_export` builds for **macOS, Linux, and Windows**. A Health app `export.zip` is just a file — it does not require macOS to analyse.
+
+### Install
+
+```sql
+INSTALL healthkit_export FROM community;
+LOAD healthkit_export;
+```
+
+Requires DuckDB **1.5.5+** on a **native** platform (not Wasm).
+
+### Explicitly not in v0.3.0
+
+- **Wasm / in-browser** DuckDB — deferred. Full exports are large and the scanner still buffers in bind (high peak RAM). Tracked on the [ROADMAP](ROADMAP.md).
+
+### Unchanged
+
+- SQL API (`read_healthkit_export`, `healthkit_*`)
+- C API stamp **v1.2.0**
+- Branding / trademark policy ([BRANDING.md](BRANDING.md))
+
+---
+
+
 ## v0.2.0 — rename to `healthkit_export` (2026-09-12)
 
 **Breaking rename** of the extension id and SQL table functions (no aliases).

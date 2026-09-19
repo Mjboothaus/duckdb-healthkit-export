@@ -1,8 +1,8 @@
 # duckdb-healthkit-export
 
-**v0.2.0** — Health app / HealthKit `export.zip` → DuckDB SQL, in-process.
+**v0.3.0** — Health app / HealthKit `export.zip` → DuckDB SQL, in-process.
 
-DuckDB **scanner** extension **`healthkit_export`**: reads exports produced by the Health app (HealthKit `export.zip` / `export.xml`) as typed tables. Written in **C** on the **stable C API**. Published as a **[community extension](https://duckdb.org/community_extensions/)** on **macOS** (DuckDB **1.5.5+**). See [CREATE_COMM_EXT.md](docs/CREATE_COMM_EXT.md) and [BRANDING.md](docs/BRANDING.md).
+DuckDB **scanner** extension **`healthkit_export`**: reads exports produced by the Health app (HealthKit `export.zip` / `export.xml`) as typed tables. Written in **C** on the **stable C API**. Published as a **[community extension](https://duckdb.org/community_extensions/)** for **native** platforms (DuckDB **1.5.5+**). The Health app **export.zip is just a file** — use it on any OS. **Wasm** is on the roadmap only. See [CREATE_COMM_EXT.md](docs/CREATE_COMM_EXT.md) and [BRANDING.md](docs/BRANDING.md).
 
 > **Not affiliated with, endorsed by, or sponsored by Apple Inc.** Apple, Apple Health, and HealthKit are trademarks of Apple Inc.
 
@@ -60,15 +60,15 @@ This project fills the gap between those: **HealthKit-aware, in-process SQL** ai
 - Stable C ABI so the binary is not rebuilt for every DuckDB patch
 - Optional **Python add-ons** (local DB, maps, Photos, journeys) — not required to unlock data in SQL
 
-## Status (v0.2.0)
+## Status (v0.3.0)
 
 | | |
 |---|---|
 | Extension name | **`healthkit_export`** (renamed from short-lived `apple_health` community id) |
-| Version | **v0.2.0** |
-| Install | **`INSTALL healthkit_export FROM community`** on **macOS** (DuckDB **1.5.5+**) — [community-extensions#2685](https://github.com/duckdb/community-extensions/pull/2685) |
+| Version | **v0.3.0** |
+| Install | **`INSTALL healthkit_export FROM community`** (DuckDB **1.5.5+**, native OS) — [community-extensions#2685](https://github.com/duckdb/community-extensions/pull/2685) |
 | First community listing | [PR #2653](https://github.com/duckdb/community-extensions/pull/2653) published **`apple_health`** briefly — **use `healthkit_export` going forward** |
-| Platforms | Community target: **macOS only** for now |
+| Platforms | **macOS, Linux, Windows** (native). **Wasm** not yet — large exports are a poor browser fit |
 | DuckDB | Host **1.5.5+**; local unsigned builds for development |
 | Correctness | SQLLogic + fixture golden + pytest vs `healthkit-to-sqlite` (top-level records) |
 | Limits | Parse buffers in bind (RAM ∝ export size); named `types`/`start`/`end` filters not shipped yet |
@@ -83,7 +83,7 @@ See [RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and [ROADMAP.md](docs/ROADMAP.md).
 
 ## Requirements (Mac)
 
-**To use the community extension only:** DuckDB CLI **1.5.5+** (or matching Python `duckdb` wheel) on macOS — no local C build required.
+**To use the community extension only:** DuckDB CLI **1.5.5+** (or matching Python `duckdb` wheel) on **macOS, Linux, or Windows** — no local C build required. Point it at your `export.zip` from any machine.
 
 **To build from source / run tests:**
 
@@ -163,7 +163,7 @@ Daily rings. Both `appleMoveMinutes*` (older) and `appleMoveTime*` (iOS 14+) as 
 
 ### Not in v0.1.x core
 
-ECG as a first-class table, Correlation as a table, Wasm, non-macOS community binaries, Watch/iPhone dedupe, named `types`/`start`/`end` pushdown, streaming execute.
+ECG as a first-class table, Correlation as a table, Wasm/browser builds, Watch/iPhone dedupe, named `types`/`start`/`end` pushdown, streaming execute.
 
 **Semantics:** top-level `<Record>` only — nested Correlation children are skipped (see [DESIGN.md](docs/DESIGN.md) and tests).
 
