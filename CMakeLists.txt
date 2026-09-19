@@ -56,6 +56,15 @@ target_include_directories(${EXTENSION_NAME} PRIVATE src src/include)
 # Include DuckDB C API headers
 target_include_directories(${EXTENSION_NAME} PRIVATE duckdb_capi)
 
-# zlib for zip_source (DEFLATE members in export.zip)
-find_package(ZLIB REQUIRED)
-target_link_libraries(${EXTENSION_NAME} PRIVATE ZLIB::ZLIB)
+# zlib for zip_source (DEFLATE members in export.zip).
+# On Apple, link the compiler's default -lz (SDK multi-arch). Do not use
+# find_package(ZLIB): with a vcpkg toolchain it still prefers vcpkg's
+# arch-specific static libz and breaks osx_amd64 cross-builds on arm64 hosts.
+# Windows CI uses vcpkg.json → zlib via find_package.
+if(APPLE)
+	target_link_libraries(${EXTENSION_NAME} PRIVATE z)
+	message(STATUS "Apple zlib: linking -lz (system/SDK)")
+else()
+	find_package(ZLIB REQUIRED)
+	target_link_libraries(${EXTENSION_NAME} PRIVATE ZLIB::ZLIB)
+endif()
