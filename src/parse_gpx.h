@@ -7,7 +7,7 @@
 
 #include "parse_health.h"
 
-/* Streaming Apple Health workout-route GPX parser. No DuckDB headers. */
+/* Streaming workout-route GPX parser (Health app export routes). No DuckDB headers. */
 
 typedef struct {
 	char gpx_path[AH_ATTR_MAX];

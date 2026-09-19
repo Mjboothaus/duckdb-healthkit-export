@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write synthetic Apple Health fixture files. No PHI. Stdlib only."""
+"""Write synthetic HealthKit-format fixture files. No PHI. Stdlib only."""
 
 from __future__ import annotations
 

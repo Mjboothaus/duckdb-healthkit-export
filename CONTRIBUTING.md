@@ -6,7 +6,7 @@ Thanks for interest in `duckdb-healthkit-export`. This is a **v0.1.0-beta** C ex
 
 1. Read [docs/DESIGN.md](docs/DESIGN.md) (locked decisions and hard rules).
 2. Skim [ROADMAP.md](docs/ROADMAP.md) so work is not duplicated.
-3. Never commit a real Apple Health export or other PHI.
+3. Never commit a real Health app export or other PHI.
 
 ## Dev setup (macOS)
 
@@ -44,7 +44,7 @@ just pytest-ext
 Behavioural changes need fixture tests green. Optional real-export checks:
 
 ```bash
-APPLE_HEALTH_EXPORT_ZIP=/path/to/export.zip just pytest-ext-real export_zip=/path/to/export.zip
+HEALTHKIT_EXPORT_ZIP=/path/to/export.zip just pytest-ext-real export_zip=/path/to/export.zip
 ```
 
 Keep real zips **outside** the repo.

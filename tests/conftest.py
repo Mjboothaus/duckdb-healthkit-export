@@ -68,11 +68,17 @@ def con(extension_path: Path):
 
 @pytest.fixture(scope="session")
 def real_export_zip() -> Path | None:
-    """Optional real Health zip via APPLE_HEALTH_EXPORT_ZIP (never committed)."""
-    raw = os.environ.get("APPLE_HEALTH_EXPORT_ZIP", "").strip()
+    """Optional real Health zip via HEALTHKIT_EXPORT_ZIP (never committed).
+
+    ``APPLE_HEALTH_EXPORT_ZIP`` is still accepted as a deprecated alias.
+    """
+    raw = (
+        os.environ.get("HEALTHKIT_EXPORT_ZIP", "").strip()
+        or os.environ.get("APPLE_HEALTH_EXPORT_ZIP", "").strip()
+    )
     if not raw:
         return None
     path = Path(raw).expanduser()
     if not path.is_file():
-        pytest.skip(f"APPLE_HEALTH_EXPORT_ZIP set but not a file: {path}")
+        pytest.skip(f"HEALTHKIT_EXPORT_ZIP set but not a file: {path}")
     return path

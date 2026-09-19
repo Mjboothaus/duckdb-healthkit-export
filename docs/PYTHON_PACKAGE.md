@@ -10,7 +10,7 @@ Companion library for the **duckdb-healthkit-export** C extension. It owns the *
 |-----------|---------|
 | `healthkit-store` | **Chosen.** Matches the durable artefact (`HealthkitStore`, `just build-db`, local `.duckdb` file). Neutral; no Apple trademark in the package name. |
 | `health-data-explore` | Good product *verb*, weaker library name. Exploration UIs (marimo) are still **experimental** and optional; naming the whole package after them oversells Layer C. |
-| `apple-health-*` | Avoid on PyPI; keep “Apple Health export” in prose only. |
+| `apple-health-*` | Avoid on PyPI; keep “Health app export” in prose only. |
 
 Import: `healthkit_store`. Class name stays `HealthkitStore`.
 

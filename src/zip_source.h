@@ -6,7 +6,7 @@
 
 #include "parse_health.h"
 
-/* Open Apple Health path as a stream of export.xml bytes.
+/* Open a Health app export path as a stream of export.xml bytes.
  * path may be:
  *   - .zip containing a member ending in export.xml (e.g. apple_health_export/export.xml)
  *   - directory containing export.xml

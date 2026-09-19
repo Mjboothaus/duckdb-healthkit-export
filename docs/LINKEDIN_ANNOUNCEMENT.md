@@ -10,7 +10,7 @@
 
 ## Primary post (recommended)
 
-I open-sourced **duckdb-healthkit-export** — a DuckDB **scanner** that turns an Apple Health `export.zip` into typed SQL tables, **in-process**.
+I open-sourced **duckdb-healthkit-export** — a DuckDB **scanner** that turns a Health app `export.zip` into typed SQL tables, **in-process**.
 
 No cloud. No warehouse. No telemetry in the extension. Your export stays on your machine.
 
@@ -63,7 +63,7 @@ Docs: README · [PERSONA](https://github.com/Mjboothaus/duckdb-healthkit-export/
 
 ## Shorter variant
 
-Open-sourcing **duckdb-healthkit-export**: Apple Health `export.zip` → DuckDB SQL **in-process** (C, stable C API, unsigned load).
+Open-sourcing **duckdb-healthkit-export**: Health app `export.zip` → DuckDB SQL **in-process** (C, stable C API, unsigned load).
 
 ```sql
 FROM read_healthkit_export('export.zip');
@@ -81,7 +81,7 @@ https://github.com/Mjboothaus/duckdb-healthkit-export
 
 ## Ultra-short (character-tight)
 
-Built a DuckDB extension so Apple Health exports become local SQL — C, stable C API, no telemetry. Scan → Parquet. Optional maps later. v0.1 unsigned.
+Built a DuckDB extension so Health app exports become local SQL — C, stable C API, no telemetry. Scan → Parquet. Optional maps later. v0.1 unsigned.
 
 https://github.com/Mjboothaus/duckdb-healthkit-export
 
@@ -99,7 +99,7 @@ Fast path: `COPY … TO '….parquet'` or `just build-db` → `output/healthkit_
 
 Explore notebooks (optional): `notebooks/explore_export.py`, maps via `just map-walks` / walk-stories after a local DB exists.
 
-Feedback welcome from DuckDB + Apple Health folks — especially on streaming/execute performance and community packaging.
+Feedback welcome from DuckDB + personal-health-data folks — especially on streaming/execute performance and community packaging.
 
 ---
 
