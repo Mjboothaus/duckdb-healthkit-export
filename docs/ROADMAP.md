@@ -27,7 +27,7 @@ Raw XML scan is intentionally the **slow path**; Parquet / local DuckDB is the *
 
 **Post-v0.1 performance work (priority order):**
 
-1. Stream rows in **execute** (chunked emission; lower peak RAM)
+1. Stream rows in **execute** (chunked emission; lower peak RAM) — see [STREAMING_PLAN.md](STREAMING_PLAN.md)
 2. Streaming inflate from zip (avoid full XML extract when possible)
 3. Named parameters / pushdown: `types`, `start`, `end` (and document vs `WHERE` after scan)
 4. String interning for repeated type/source strings
