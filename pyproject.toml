@@ -8,6 +8,7 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "mjboothaus" }]
 keywords = ["duckdb", "health", "gps", "fitness", "local-first"]
 dependencies = [
+    # Host: DuckDB 2.0 LTS preferred; 1.5.x still works for community installs until EOL.
     "duckdb>=1.5.0",
     "pandas>=2.2.0",
     "pyyaml>=6.0",

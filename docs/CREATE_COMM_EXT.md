@@ -1,9 +1,9 @@
 # DuckDB community extension
 
-Last updated: 2026-09-12.
+Last updated: 2026-10-26.
 
 **duckdb-healthkit-export** ships the DuckDB C scanner as community extension
-**`healthkit_export`** (macOS first):
+**`healthkit_export`**:
 
 ```sql
 INSTALL healthkit_export FROM community;
@@ -11,10 +11,11 @@ LOAD healthkit_export;
 ```
 
 - First listing (name **`apple_health`**, superseded): https://github.com/duckdb/community-extensions/pull/2653
-- Current package name: **`healthkit_export`** (v**0.3.0**, C API stamp **v1.2.0**)
+- Current package name: **`healthkit_export`** (v**0.3.1**; host **DuckDB 2.0.0**, stable C_STRUCT)
 - Descriptor path: `extensions/healthkit_export/description.yml`
-- Platforms: **native** macOS / Linux / Windows for DuckDB **v1.5.5**
+- Platforms: **native** macOS arm64 / Linux / Windows for DuckDB **v2.0.0** (prior CDN builds for 1.5.x)
 - **Wasm** excluded (roadmap — large exports + memory model)
+- **`osx_amd64`** excluded from community builds from DuckDB 2.0 (upstream policy)
 
 Related: [DESIGN.md](DESIGN.md) · [RELEASE_PLAN.md](RELEASE_PLAN.md) · [VERSIONING.md](VERSIONING.md) · [ROADMAP.md](ROADMAP.md).
 
@@ -26,9 +27,9 @@ Related: [DESIGN.md](DESIGN.md) · [RELEASE_PLAN.md](RELEASE_PLAN.md) · [VERSIO
 |--|--|
 | Branding fix PR | [#2685](https://github.com/duckdb/community-extensions/pull/2685) **merged** — `healthkit_export` live; `apple_health` listing removed |
 | First listing (superseded) | [#2653](https://github.com/duckdb/community-extensions/pull/2653) briefly used id `apple_health` |
-| Current name | **`healthkit_export`** (v0.3.0) |
-| CDN (example) | `https://community-extensions.duckdb.org/v1.5.5/osx_arm64/healthkit_export.duckdb_extension.gz` |
-| Verified | `INSTALL` / `LOAD` + fixture queries on DuckDB **1.5.5** (macOS arm64) |
+| Current name | **`healthkit_export`** (v0.3.1) |
+| CDN (example) | `https://community-extensions.duckdb.org/v2.0.0/osx_arm64/healthkit_export.duckdb_extension.gz` |
+| Verified | Local unsigned LOAD on DuckDB **2.x**; community CDN rebuild after `repo.ref` bump |
 
 ## What “community extension” means
 
@@ -117,7 +118,7 @@ extension:
   license: Apache-2.0
   maintainers:
     - Mjboothaus
-  # excluded_platforms: wasm_mvp;wasm_eh;wasm_threads   # if needed
+  # excluded_platforms: wasm_mvp;wasm_eh;wasm_threads;osx_amd64
   # requires_toolchains: ...                            # only if CI needs extras
 
 repo:
@@ -193,7 +194,7 @@ Layout DuckDB already understands:
 
 ```text
 https://example.com/extensions/
-  v1.5.x/          # or version directory DuckDB expects for your build
+  v2.0.0/          # or version directory DuckDB expects for your build
     osx_arm64/
       healthkit_export.duckdb_extension
     linux_amd64/
