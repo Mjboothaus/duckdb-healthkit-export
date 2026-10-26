@@ -10,15 +10,16 @@ EXTENSION_NAME=healthkit_export
 #          the header is unsafe.
 USE_UNSTABLE_C_API=0
 
-# Stable C extension API version stamped into extension metadata (NOT the DuckDB release tag).
-# Community CI hosts only load C-API extensions built for ≤ v1.2.0. Match extension-template-c.
-# The DuckDB *release* used to build/test is set separately in MainDistributionPipeline.yml
-# (duckdb_version, currently v1.5.5).
+# Stable C Extension API version stamped into metadata (NOT the DuckDB host tag).
+# Must stay on a v1.x value so LOAD looks for healthkit_export_init_c_api (V1),
+# not healthkit_export_init_c_api_v2. Matches duckdb/extension-template-c after
+# the DuckDB 2.0 bump (CI host is v2.0.0; this stamp is the C_STRUCT floor).
+# Host release: MainDistributionPipeline.yml duckdb_version = v2.0.0.
 # Refresh vendored headers: make update_duckdb_headers
-# Optional 2.0-alpha experiments: make headers-alpha debug-alpha (requires USE_UNSTABLE_C_API=1).
+# Optional unstable helpers: make headers-alpha debug-alpha (USE_UNSTABLE_C_API=1).
 TARGET_DUCKDB_VERSION=v1.2.0
-# Header ref for optional alpha helpers only (do not use for community/stable builds).
-DUCKDB_HEADER_REF ?= v2.0-cyanoptera
+# Header ref for optional unstable/pre-release helpers only.
+DUCKDB_HEADER_REF ?= v2.0.0
 
 all: configure release
 
@@ -51,12 +52,12 @@ parse_health_cli:
 	$(CC) -std=c11 -Wall -Wextra -O2 -I src $(ZLIB_CFLAGS) -o build/debug/parse_health \
 		src/parse_health.c src/zip_source.c src/parse_health_main.c $(ZLIB_LIBS)
 
-# ── DuckDB 2.0-alpha helpers (experimental; not for community publish) ──────
-# These pull unstable headers and must be paired with USE_UNSTABLE_C_API=1.
-# Stable community builds use TARGET_DUCKDB_VERSION=v1.2.0 + update_duckdb_headers.
+# ── Pre-release / unstable C API helpers (not for community publish) ────────
+# Pull headers from DUCKDB_HEADER_REF and build with USE_UNSTABLE_C_API=1.
+# Stable community builds: TARGET_DUCKDB_VERSION=v1.2.0 + default headers.
 .PHONY: headers-alpha debug-alpha release-alpha
 headers-alpha: check_configure
-	@echo "Fetching unstable C API headers from duckdb/$(DUCKDB_HEADER_REF)…"
+	@echo "Fetching C API headers from duckdb/$(DUCKDB_HEADER_REF)…"
 	$(PYTHON_VENV_BIN) -c "import urllib.request;urllib.request.urlretrieve('https://raw.githubusercontent.com/duckdb/duckdb/$(DUCKDB_HEADER_REF)/src/include/duckdb.h', 'duckdb_capi/duckdb.h')"
 	$(PYTHON_VENV_BIN) -c "import urllib.request;urllib.request.urlretrieve('https://raw.githubusercontent.com/duckdb/duckdb/$(DUCKDB_HEADER_REF)/src/include/duckdb_extension.h', 'duckdb_capi/duckdb_extension.h')"
 	@rg -n "DUCKDB_EXTENSION_API_VERSION_(MAJOR|MINOR|PATCH)" duckdb_capi/duckdb_extension.h | head -5 || true
@@ -64,9 +65,8 @@ headers-alpha: check_configure
 debug-alpha: headers-alpha
 	$(MAKE) debug USE_UNSTABLE_C_API=1 TARGET_DUCKDB_VERSION=$(DUCKDB_HEADER_REF)
 
-# SQLLogic after alpha metadata needs a matching pre-release duckdb in the venv, e.g.:
-#   ./configure/venv/bin/python -m pip install --pre --upgrade "duckdb>=1.6.0.dev0"
+# SQLLogic after unstable metadata needs a matching duckdb wheel in the venv, e.g.:
+#   ./configure/venv/bin/python -m pip install --upgrade "duckdb==2.0.0"
 
 release-alpha: headers-alpha
 	$(MAKE) release USE_UNSTABLE_C_API=1 TARGET_DUCKDB_VERSION=$(DUCKDB_HEADER_REF)
-

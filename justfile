@@ -4,7 +4,7 @@
 #
 #   just              # list recipes
 #   just bootstrap    # configure (if needed) + debug + fixture
-#   just debug / just debug-alpha   # stable C API; 2.0-alpha headers+CLI
+#   just debug / just debug-alpha   # stable C API; unstable headers+CLI
 #   just pytest-ext   # builds debug extension when missing
 #   just demo         # unsigned LOAD + fixture scan (set DUCKDB=… for alpha CLI)
 #   just duckdb-alpha # interactive shell with alpha CLI if installed
@@ -17,7 +17,7 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 set dotenv-load := false
 
 python := env_var_or_default("PYTHON", "python3")
-# DuckDB CLI: override with DUCKDB=/path/to/duckdb. Default prefers 2.x alpha install if present.
+# DuckDB CLI: override with DUCKDB=/path/to/duckdb. Prefer ~/.duckdb/cli/latest when present (often 2.x).
 duckdb := env_var_or_default("DUCKDB", if path_exists(home_directory() / ".duckdb/cli/latest/duckdb") == "true" { home_directory() / ".duckdb/cli/latest/duckdb" } else { "duckdb" })
 gen    := env_var_or_default("GEN", "ninja")
 
@@ -74,12 +74,12 @@ configure: need-template
 debug: need-template
     GEN={{gen}} make debug
 
-# Fetch DuckDB 2.0-alpha (cyanoptera) C API headers and rebuild debug extension.
-# Metadata uses parseable TARGET_DUCKDB_VERSION (default v1.5.6). Requires alpha-capable CLI to LOAD.
+# Fetch pre-release / unstable C API headers and rebuild debug extension.
+# Requires a CLI matching DUCKDB_HEADER_REF (default v2.0.0) to LOAD.
 debug-alpha: need-template
     GEN={{gen}} make debug-alpha
 
-# Interactive unsigned shell using preferred duckdb CLI (alpha if installed).
+# Interactive unsigned shell using preferred duckdb CLI.
 duckdb-alpha: fixture ensure-ext
     @echo "Using: {{duckdb}}"
     @{{duckdb}} -c "SELECT version() AS duckdb_version;"

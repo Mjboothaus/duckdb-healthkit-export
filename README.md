@@ -2,7 +2,7 @@
 
 **v0.3.0** — Health app / HealthKit `export.zip` → DuckDB SQL, in-process.
 
-DuckDB **scanner** extension **`healthkit_export`**: reads exports produced by the Health app (HealthKit `export.zip` / `export.xml`) as typed tables. Written in **C** on the **stable C API**. Published as a **[community extension](https://duckdb.org/community_extensions/)** for **native** platforms (DuckDB **1.5.5+**). The Health app **export.zip is just a file** — use it on any OS. **Wasm** is on the roadmap only. See [CREATE_COMM_EXT.md](docs/CREATE_COMM_EXT.md) and [BRANDING.md](docs/BRANDING.md).
+DuckDB **scanner** extension **`healthkit_export`**: reads exports produced by the Health app (HealthKit `export.zip` / `export.xml`) as typed tables. Written in **C** on the **stable C API**. Published as a **[community extension](https://duckdb.org/community_extensions/)** for **native** platforms (DuckDB **2.0** LTS preferred; **1.5.x** still supported until EOL). The Health app **export.zip is just a file** — use it on any OS. **Wasm** is on the roadmap only. See [CREATE_COMM_EXT.md](docs/CREATE_COMM_EXT.md) and [BRANDING.md](docs/BRANDING.md).
 
 > **Not affiliated with, endorsed by, or sponsored by Apple Inc.** Apple, Apple Health, and HealthKit are trademarks of Apple Inc.
 
@@ -66,10 +66,10 @@ This project fills the gap between those: **HealthKit-aware, in-process SQL** ai
 |---|---|
 | Extension name | **`healthkit_export`** (renamed from short-lived `apple_health` community id) |
 | Version | **v0.3.0** |
-| Install | **`INSTALL healthkit_export FROM community`** (DuckDB **1.5.5+**, native OS) — [community-extensions#2685](https://github.com/duckdb/community-extensions/pull/2685) |
+| Install | **`INSTALL healthkit_export FROM community`** (DuckDB **2.0** preferred; **1.5.5+** on prior CDN) — [community-extensions#2685](https://github.com/duckdb/community-extensions/pull/2685) |
 | First community listing | [PR #2653](https://github.com/duckdb/community-extensions/pull/2653) published **`apple_health`** briefly — **use `healthkit_export` going forward** |
-| Platforms | **macOS, Linux, Windows** (native). **Wasm** not yet — large exports are a poor browser fit |
-| DuckDB | Host **1.5.5+**; local unsigned builds for development |
+| Platforms | **macOS (arm64), Linux, Windows** (native). **Wasm** not yet. Community **osx_amd64** dropped from DuckDB 2.0 |
+| DuckDB | Host **2.0.0** LTS (CI target); **1.5.x** until March 2027 |
 | Correctness | SQLLogic + fixture golden + pytest vs `healthkit-to-sqlite` (top-level records) |
 | Limits | Parse buffers in bind (RAM ∝ export size); named `types`/`start`/`end` filters not shipped yet |
 
@@ -83,13 +83,13 @@ See [RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and [ROADMAP.md](docs/ROADMAP.md).
 
 ## Requirements (Mac)
 
-**To use the community extension only:** DuckDB CLI **1.5.5+** (or matching Python `duckdb` wheel) on **macOS, Linux, or Windows** — no local C build required. Point it at your `export.zip` from any machine.
+**To use the community extension only:** DuckDB CLI **2.0+** preferred (or **1.5.5+** while those CDN builds remain) / matching Python `duckdb` wheel on **macOS, Linux, or Windows** — no local C build required. Point it at your `export.zip` from any machine.
 
 **To build from source / run tests:**
 
 - Xcode CLT (`clang`, `make`, `cmake`)
 - Python 3.12+ (`uv` recommended for tests/notebook)
-- DuckDB CLI on `PATH` (1.5.5+ preferred; unsigned load for local binaries)
+- DuckDB CLI on `PATH` (**2.0.0** preferred; unsigned load for local binaries)
 - Optional: Ninja, ccache, [just](https://github.com/casey/just)
 
 ```bash
@@ -105,7 +105,7 @@ LOAD healthkit_export;
 FROM read_healthkit_export('test/data/export.zip');  -- or your export.zip
 ```
 
-Requires DuckDB **1.5.5+** on **macOS**. Older CLI builds (e.g. 1.5.2) will 404 on the community CDN until you upgrade.
+Requires a DuckDB build that has a community CDN binary for this extension (historically **1.5.5+**; **2.0.0** after the community rebuild). Older CLIs 404 on the CDN until you upgrade.
 
 ## Build (local, unsigned — developers)
 

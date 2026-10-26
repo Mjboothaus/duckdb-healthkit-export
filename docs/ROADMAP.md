@@ -49,8 +49,9 @@ Raw XML scan is intentionally the **slow path**; Parquet / local DuckDB is the *
 
 ## Near-term
 
+- [ ] **DuckDB 2.0.0** community rebuild (`description.yml` `repo.ref` after CI green on `main`)
 - [ ] **Marimo** `map_walks` / `walk_stories`: smoke-test or mark experimental in docs (library Folium path is source of truth)
-- [ ] Widen community platforms (Linux/Windows) when CI + demand justify it
+- [x] Widen community platforms (Linux/Windows) — v0.3.0 (Wasm still deferred; `osx_amd64` dropped for 2.0 community)
 - [ ] Keep Python package optional; no PyPI required yet
 
 ## After v0.1.x
@@ -63,7 +64,7 @@ Raw XML scan is intentionally the **slow path**; Parquet / local DuckDB is the *
 
 ## Platforms
 
-- [x] macOS (`osx_arm64`, `osx_amd64`) — initial community publish
+- [x] macOS (`osx_arm64`; `osx_amd64` on 1.5.x CDN only — dropped for DuckDB 2.0 community)
 - [x] Linux / Windows native — v0.3.0 (export.zip is OS-agnostic)
 - [ ] **Wasm / browser** — deferred. Real Health exports are large; the scanner still buffers in bind (high RAM). Revisit after streaming execute. Demo/fixture-only Wasm may come first.
 

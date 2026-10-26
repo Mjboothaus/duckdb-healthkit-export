@@ -16,14 +16,15 @@ concurrency:
 jobs:
   duckdb-build:
     name: Build extension binaries
-    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@v1.5-variegata
+    uses: duckdb/extension-ci-tools/.github/workflows/_extension_distribution.yml@v2.0-cyanoptera
     with:
-      # DuckDB *release* used to compile/test (not the C extension API stamp).
-      # Makefile TARGET_DUCKDB_VERSION stays at v1.2.0 (stable C API metadata).
-      duckdb_version: v1.5.5
-      ci_tools_version: v1.5-variegata
+      # DuckDB release used to compile/test. Aligns with extension-template-c.
+      # Makefile TARGET_DUCKDB_VERSION stays v1.2.0 (stable C_STRUCT / V1 entrypoint).
+      duckdb_version: v2.0.0
+      ci_tools_version: v2.0-cyanoptera
       extension_name: healthkit_export
       extra_toolchains: python3
       # Health app export.zip is a portable file — native OS builds only.
-      # Wasm excluded: large exports + bind-time buffering are a poor browser fit (ROADMAP).
-      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads"
+      # Wasm: large exports + bind-time buffering (ROADMAP).
+      # osx_amd64: community extensions no longer built for this platform from DuckDB 2.0.
+      exclude_archs: "wasm_mvp;wasm_eh;wasm_threads;osx_amd64"
