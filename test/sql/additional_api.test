@@ -64,4 +64,32 @@ record	Height	HKWasUserEntered
 query I
 SELECT count(*) FROM read_healthkit_export('test/data/export.xml');
 ----
-8
+9
+
+query I
+SELECT count(*) FROM healthkit_heartbeat_points('test/data/export.xml');
+----
+3
+
+query II
+SELECT bpm, parent_type_short FROM healthkit_heartbeat_points('test/data/export.xml') ORDER BY bpm;
+----
+58.0	HeartRateVariabilitySDNN
+60.0	HeartRateVariabilitySDNN
+62.0	HeartRateVariabilitySDNN
+
+query II
+SELECT classification, n_samples FROM healthkit_ecg_recordings('test/data/export.zip');
+----
+Sinus Rhythm	4
+
+query I
+SELECT count(*) FROM healthkit_ecg_samples('test/data/export.zip');
+----
+4
+
+# Identity fields must never appear as columns/values from ECG CSV Name header
+query I
+SELECT count(*) FROM healthkit_ecg_recordings('test/data/export.zip') WHERE classification = 'Demo Subject';
+----
+0

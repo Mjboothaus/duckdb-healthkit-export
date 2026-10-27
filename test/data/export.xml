@@ -15,6 +15,13 @@
   <Record type="HKQuantityTypeIdentifierHeight" unit="cm" value="180" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-10 09:00:00 +1100" startDate="2026-01-10 09:00:00 +1100" endDate="2026-01-10 09:00:00 +1100">
     <MetadataEntry key="HKWasUserEntered" value="1"/>
   </Record>
+  <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" unit="ms" value="42.5" sourceName="Demo Watch" sourceVersion="11.0" creationDate="2026-01-15 06:40:00 +1100" startDate="2026-01-15 06:39:00 +1100" endDate="2026-01-15 06:40:00 +1100">
+    <HeartRateVariabilityMetadataList>
+      <InstantaneousBeatsPerMinute bpm="60" time="6:39:10.00 am"/>
+      <InstantaneousBeatsPerMinute bpm="62" time="6:39:20.00 am"/>
+      <InstantaneousBeatsPerMinute bpm="58" time="6:39:30.00 am"/>
+    </HeartRateVariabilityMetadataList>
+  </Record>
   <Correlation type="HKCorrelationTypeIdentifierBloodPressure" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100">
     <Record type="HKQuantityTypeIdentifierBloodPressureSystolic" unit="mmHg" value="118" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
     <Record type="HKQuantityTypeIdentifierBloodPressureDiastolic" unit="mmHg" value="76" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>

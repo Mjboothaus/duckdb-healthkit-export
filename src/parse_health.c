@@ -677,6 +677,33 @@ static void handle_start_tag(ah_parser *P, const char *name, const ah_attr_map *
 		P->stats.metadata_entries++;
 		return;
 	}
+	if (strcmp(name, "InstantaneousBeatsPerMinute") == 0) {
+		if (P->cb && P->cb->on_heartbeat_point) {
+			ah_heartbeat_point row;
+			memset(&row, 0, sizeof(row));
+			const char *bpm = attr_get(attrs, "bpm");
+			const char *t = attr_get(attrs, "time");
+			if (bpm) {
+				(void)ah_parse_double(bpm, &row.bpm);
+			}
+			copy_attr(row.time_text, sizeof(row.time_text), t ? t : "");
+			if (P->has_current_record) {
+				copy_attr(row.parent_type, sizeof(row.parent_type), P->current_record.type);
+				copy_attr(row.parent_type_short, sizeof(row.parent_type_short), P->current_record.type_short);
+				copy_attr(row.parent_start_date, sizeof(row.parent_start_date), P->current_record.start_date);
+				copy_attr(row.parent_end_date, sizeof(row.parent_end_date), P->current_record.end_date);
+				copy_attr(row.parent_source_name, sizeof(row.parent_source_name), P->current_record.source_name);
+				copy_attr(row.parent_unit, sizeof(row.parent_unit), P->current_record.unit);
+				if (P->current_record.has_value) {
+					row.has_parent_value = true;
+					row.parent_value = P->current_record.value;
+				}
+			}
+			P->cb->on_heartbeat_point(&row, P->cb->userdata);
+		}
+		P->stats.heartbeat_points++;
+		return;
+	}
 	if (strcmp(name, "WorkoutEvent") == 0) {
 		if (P->cb && P->cb->on_workout_event) {
 			ah_workout_event row;

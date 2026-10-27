@@ -15,3 +15,6 @@ void RegisterHealthkitZipInventoryFunction(duckdb_connection connection);
 void RegisterHealthkitCorrelationsFunction(duckdb_connection connection);
 void RegisterHealthkitCorrelationMembersFunction(duckdb_connection connection);
 void RegisterHealthkitMetadataFunction(duckdb_connection connection);
+void RegisterHealthkitHeartbeatPointsFunction(duckdb_connection connection);
+void RegisterHealthkitEcgRecordingsFunction(duckdb_connection connection);
+void RegisterHealthkitEcgSamplesFunction(duckdb_connection connection);

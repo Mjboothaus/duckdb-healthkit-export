@@ -167,6 +167,20 @@ typedef struct {
 	char value[AH_ATTR_MAX];
 } ah_metadata_entry;
 
+/* InstantaneousBeatsPerMinute under HeartRateVariabilityMetadataList. */
+typedef struct {
+	double bpm;
+	char time_text[64]; /* export clock string, e.g. "2:50:16.20 am" */
+	char parent_type[AH_TYPE_MAX];
+	char parent_type_short[AH_TYPE_MAX];
+	char parent_start_date[64];
+	char parent_end_date[64];
+	char parent_source_name[AH_ATTR_MAX];
+	double parent_value; /* HRV SDNN when present */
+	bool has_parent_value;
+	char parent_unit[64];
+} ah_heartbeat_point;
+
 typedef struct {
 	void (*on_record)(const ah_record *row, void *userdata);
 	void (*on_workout)(const ah_workout *row, void *userdata);
@@ -179,6 +193,7 @@ typedef struct {
 	void (*on_correlation)(const ah_correlation *row, void *userdata);
 	void (*on_correlation_member)(const ah_correlation_member *row, void *userdata);
 	void (*on_metadata_entry)(const ah_metadata_entry *row, void *userdata);
+	void (*on_heartbeat_point)(const ah_heartbeat_point *row, void *userdata);
 	void *userdata;
 } ah_parse_callbacks;
 
@@ -192,6 +207,7 @@ typedef struct {
 	size_t correlations;
 	size_t correlation_members;
 	size_t metadata_entries;
+	size_t heartbeat_points;
 	size_t skipped_nested_records;
 } ah_parse_stats;
 

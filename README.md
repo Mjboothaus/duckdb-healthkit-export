@@ -177,6 +177,17 @@ Correlation parents (e.g. blood pressure) and nested member records. Top-level `
 
 `<MetadataEntry key/value>` with soft parent keys (`parent_kind`: `record` / `workout` / `correlation`).
 
+
+### `healthkit_heartbeat_points(path)` — **implemented**
+
+Instantaneous BPM readings nested under HRV (`HeartRateVariabilityMetadataList`). Soft-joins to the parent HRV record.
+
+### `healthkit_ecg_recordings(path)` / `healthkit_ecg_samples(path)` — **implemented**
+
+ECG CSVs under `electrocardiograms/`. Optional named filter `ecg_path := '…substring…'`.
+
+**Privacy:** the extension **never returns** ECG CSV header fields **Name** or **Date of Birth**. Prefer device/classification/timing only. Samples can be large — filter with `ecg_path` when possible.
+
 ### Record filters (named parameters)
 
 ```sql

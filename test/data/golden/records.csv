@@ -7,3 +7,4 @@ HKQuantityTypeIdentifierActiveEnergyBurned,ActiveEnergyBurned,kcal,42.5,,2026-01
 HKQuantityTypeIdentifierBloodPressureSystolic,BloodPressureSystolic,mmHg,118,,2026-01-14 08:00:00 +1100,2026-01-14 08:00:00 +1100,2026-01-14 08:00:00 +1100,Demo Phone,18.0
 HKQuantityTypeIdentifierBloodPressureDiastolic,BloodPressureDiastolic,mmHg,76,,2026-01-14 08:00:00 +1100,2026-01-14 08:00:00 +1100,2026-01-14 08:00:00 +1100,Demo Phone,18.0
 HKQuantityTypeIdentifierHeight,Height,cm,180,,2026-01-10 09:00:00 +1100,2026-01-10 09:00:00 +1100,2026-01-10 09:00:00 +1100,Demo Phone,18.0
+HKQuantityTypeIdentifierHeartRateVariabilitySDNN,HeartRateVariabilitySDNN,ms,42.5,,2026-01-15 06:39:00 +1100,2026-01-15 06:40:00 +1100,2026-01-15 06:40:00 +1100,Demo Watch,11.0

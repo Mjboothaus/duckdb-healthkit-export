@@ -34,6 +34,7 @@ set(EXTENSION_SOURCES
         src/healthkit_export_extra_tf.c
         src/healthkit_export_extension.c
         src/parse_health.c
+        src/parse_ecg.c
         src/zip_source.c
         src/parse_gpx.c
 )

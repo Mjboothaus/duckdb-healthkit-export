@@ -1,6 +1,7 @@
 #include "duckdb_extension.h"
 
 #include "healthkit_export_tf.h"
+#include "parse_ecg.h"
 #include "parse_health.h"
 #include "zip_source.h"
 
@@ -1210,6 +1211,345 @@ void RegisterHealthkitMetadataFunction(duckdb_connection connection) {
 	duckdb_table_function_set_bind(function, MetaBind);
 	duckdb_table_function_set_init(function, ScanInit);
 	duckdb_table_function_set_function(function, MetaFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
+
+/* -------------------------------------------------------------------------- */
+/* healthkit_heartbeat_points                                                 */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+	ah_heartbeat_point *rows;
+	size_t count;
+	size_t capacity;
+	char *path;
+	char *filename;
+} hb_bind_data;
+
+static void DestroyHbBind(void *ptr) {
+	hb_bind_data *b = (hb_bind_data *)ptr;
+	if (!b) return;
+	free(b->rows);
+	free(b->path);
+	free(b->filename);
+	duckdb_free(b);
+}
+
+static void OnHbCollect(const ah_heartbeat_point *row, void *userdata) {
+	hb_bind_data *b = (hb_bind_data *)userdata;
+	if (b->count >= b->capacity) {
+		size_t ncap = b->capacity ? b->capacity * 2 : 64;
+		ah_heartbeat_point *nr = (ah_heartbeat_point *)realloc(b->rows, ncap * sizeof(ah_heartbeat_point));
+		if (!nr) return;
+		b->rows = nr;
+		b->capacity = ncap;
+	}
+	b->rows[b->count++] = *row;
+}
+
+static void HbBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_logical_type double_type = duckdb_create_logical_type(DUCKDB_TYPE_DOUBLE);
+	duckdb_logical_type ts_type = duckdb_create_logical_type(DUCKDB_TYPE_TIMESTAMP_TZ);
+	duckdb_bind_add_result_column(info, "bpm", double_type);
+	duckdb_bind_add_result_column(info, "time_text", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_type", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_type_short", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_start_date", ts_type);
+	duckdb_bind_add_result_column(info, "parent_end_date", ts_type);
+	duckdb_bind_add_result_column(info, "parent_source_name", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_value", double_type);
+	duckdb_bind_add_result_column(info, "parent_unit", varchar_type);
+	duckdb_bind_add_result_column(info, "filename", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_destroy_logical_type(&double_type);
+	duckdb_destroy_logical_type(&ts_type);
+
+	char *path = BindPathOrError(info, "healthkit_heartbeat_points");
+	if (!path) return;
+	hb_bind_data *bind = (hb_bind_data *)duckdb_malloc(sizeof(hb_bind_data));
+	if (!bind) { free(path); duckdb_bind_set_error(info, "out of memory"); return; }
+	memset(bind, 0, sizeof(*bind));
+	bind->path = path;
+	char err[256]; err[0]='\0';
+	ah_xml_source *src = ah_xml_source_open(bind->path, err, sizeof(err));
+	if (!src) {
+		char msg[320];
+		snprintf(msg, sizeof(msg), "healthkit_heartbeat_points: cannot open '%s': %s", bind->path, err[0]?err:"error");
+		DestroyHbBind(bind); duckdb_bind_set_error(info, msg); return;
+	}
+	bind->filename = strdup(ah_xml_source_filename(src));
+	ah_parse_callbacks cb = {
+	    .on_record = OnRecordIgnore,
+	    .on_workout = OnWorkoutIgnore,
+	    .on_activity_summary = OnSummaryIgnore,
+	    .on_workout_route = OnRouteIgnore,
+	    .on_heartbeat_point = OnHbCollect,
+	    .userdata = bind,
+	};
+	ah_parse_stats stats; memset(&stats, 0, sizeof(stats));
+	int rc = ah_parse_xml_filep(ah_xml_source_file(src), &cb, &stats);
+	ah_xml_source_close(src);
+	if (rc != 0) { DestroyHbBind(bind); duckdb_bind_set_error(info, "healthkit_heartbeat_points: parse failed"); return; }
+	duckdb_bind_set_bind_data(info, bind, DestroyHbBind);
+	duckdb_bind_set_cardinality(info, (idx_t)bind->count, true);
+}
+
+static void HbFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	hb_bind_data *bind = (hb_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) { duckdb_data_chunk_set_size(output, 0); return; }
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+	duckdb_vector cols[10];
+	for (int c = 0; c < 10; c++) cols[c] = duckdb_data_chunk_get_vector(output, (idx_t)c);
+	duckdb_vector_ensure_validity_writable(cols[4]);
+	duckdb_vector_ensure_validity_writable(cols[5]);
+	duckdb_vector_ensure_validity_writable(cols[7]);
+	uint64_t *ps_v = duckdb_vector_get_validity(cols[4]);
+	uint64_t *pe_v = duckdb_vector_get_validity(cols[5]);
+	uint64_t *pv_v = duckdb_vector_get_validity(cols[7]);
+	double *bpm = (double *)duckdb_vector_get_data(cols[0]);
+	const char *filename = bind->filename ? bind->filename : "";
+	for (idx_t i = 0; i < n; i++) {
+		const ah_heartbeat_point *row = &bind->rows[init->offset + i];
+		bpm[i] = row->bpm;
+		AssignVarchar(cols[1], i, row->time_text);
+		AssignVarchar(cols[2], i, row->parent_type);
+		AssignVarchar(cols[3], i, row->parent_type_short);
+		AssignTimestamp(cols[4], ps_v, i, row->parent_start_date);
+		AssignTimestamp(cols[5], pe_v, i, row->parent_end_date);
+		AssignVarchar(cols[6], i, row->parent_source_name);
+		AssignOptionalDouble(cols[7], pv_v, i, row->has_parent_value, row->parent_value);
+		AssignVarchar(cols[8], i, row->parent_unit);
+		AssignVarchar(cols[9], i, filename);
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitHeartbeatPointsFunction(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_heartbeat_points");
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_table_function_add_parameter(function, varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_table_function_set_bind(function, HbBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, HbFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
+
+/* -------------------------------------------------------------------------- */
+/* healthkit_ecg_recordings / healthkit_ecg_samples                           */
+/* Privacy: Name and Date of Birth CSV headers are never exposed.             */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+	ah_ecg_recording *rows;
+	size_t count;
+	size_t capacity;
+	char *path;
+	char *filter;
+} ecgr_bind_data;
+
+typedef struct {
+	ah_ecg_sample *rows;
+	size_t count;
+	size_t capacity;
+	char *path;
+	char *filter;
+} ecgs_bind_data;
+
+static void DestroyEcgr(void *ptr) {
+	ecgr_bind_data *b = (ecgr_bind_data *)ptr;
+	if (!b) return;
+	free(b->rows); free(b->path); free(b->filter); duckdb_free(b);
+}
+static void DestroyEcgs(void *ptr) {
+	ecgs_bind_data *b = (ecgs_bind_data *)ptr;
+	if (!b) return;
+	free(b->rows); free(b->path); free(b->filter); duckdb_free(b);
+}
+
+static void OnEcgr(const ah_ecg_recording *row, void *userdata) {
+	ecgr_bind_data *b = (ecgr_bind_data *)userdata;
+	if (b->count >= b->capacity) {
+		size_t ncap = b->capacity ? b->capacity * 2 : 4;
+		ah_ecg_recording *nr = (ah_ecg_recording *)realloc(b->rows, ncap * sizeof(ah_ecg_recording));
+		if (!nr) return;
+		b->rows = nr; b->capacity = ncap;
+	}
+	b->rows[b->count++] = *row;
+}
+static void OnEcgs(const ah_ecg_sample *row, void *userdata) {
+	ecgs_bind_data *b = (ecgs_bind_data *)userdata;
+	if (b->count >= b->capacity) {
+		size_t ncap = b->capacity ? b->capacity * 2 : 1024;
+		ah_ecg_sample *nr = (ah_ecg_sample *)realloc(b->rows, ncap * sizeof(ah_ecg_sample));
+		if (!nr) return;
+		b->rows = nr; b->capacity = ncap;
+	}
+	b->rows[b->count++] = *row;
+}
+
+static char *optional_named_varchar(duckdb_bind_info info, const char *name) {
+	duckdb_value v = duckdb_bind_get_named_parameter(info, name);
+	if (!v || duckdb_is_null_value(v)) {
+		if (v) duckdb_destroy_value(&v);
+		return NULL;
+	}
+	char *s = duckdb_get_varchar(v);
+	duckdb_destroy_value(&v);
+	if (!s || !s[0]) { if (s) duckdb_free(s); return NULL; }
+	char *out = strdup(s);
+	duckdb_free(s);
+	return out;
+}
+
+static void EcgrBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_logical_type double_type = duckdb_create_logical_type(DUCKDB_TYPE_DOUBLE);
+	duckdb_logical_type ubig = duckdb_create_logical_type(DUCKDB_TYPE_UBIGINT);
+	duckdb_bind_add_result_column(info, "ecg_path", varchar_type);
+	duckdb_bind_add_result_column(info, "recorded_at", varchar_type);
+	duckdb_bind_add_result_column(info, "classification", varchar_type);
+	duckdb_bind_add_result_column(info, "symptoms", varchar_type);
+	duckdb_bind_add_result_column(info, "software_version", varchar_type);
+	duckdb_bind_add_result_column(info, "device", varchar_type);
+	duckdb_bind_add_result_column(info, "sample_rate_hz", double_type);
+	duckdb_bind_add_result_column(info, "lead", varchar_type);
+	duckdb_bind_add_result_column(info, "unit", varchar_type);
+	duckdb_bind_add_result_column(info, "n_samples", ubig);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_destroy_logical_type(&double_type);
+	duckdb_destroy_logical_type(&ubig);
+
+	char *path = BindPathOrError(info, "healthkit_ecg_recordings");
+	if (!path) return;
+	ecgr_bind_data *bind = (ecgr_bind_data *)duckdb_malloc(sizeof(ecgr_bind_data));
+	if (!bind) { free(path); duckdb_bind_set_error(info, "out of memory"); return; }
+	memset(bind, 0, sizeof(*bind));
+	bind->path = path;
+	bind->filter = optional_named_varchar(info, "ecg_path");
+	char err[256]; err[0]='\0';
+	ah_ecg_callbacks cb = { .on_recording = OnEcgr, .on_sample = NULL, .userdata = bind };
+	if (ah_parse_ecg_export(bind->path, bind->filter, &cb, err, sizeof(err)) != 0) {
+		char msg[320];
+		snprintf(msg, sizeof(msg), "healthkit_ecg_recordings: %s", err[0]?err:"parse failed");
+		DestroyEcgr(bind); duckdb_bind_set_error(info, msg); return;
+	}
+	duckdb_bind_set_bind_data(info, bind, DestroyEcgr);
+	duckdb_bind_set_cardinality(info, (idx_t)bind->count, true);
+}
+
+static void EcgrFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	ecgr_bind_data *bind = (ecgr_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) { duckdb_data_chunk_set_size(output, 0); return; }
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+	duckdb_vector cols[10];
+	for (int c=0;c<10;c++) cols[c]=duckdb_data_chunk_get_vector(output,(idx_t)c);
+	duckdb_vector_ensure_validity_writable(cols[6]);
+	uint64_t *hz_v = duckdb_vector_get_validity(cols[6]);
+	uint64_t *ns = (uint64_t *)duckdb_vector_get_data(cols[9]);
+	for (idx_t i=0;i<n;i++) {
+		const ah_ecg_recording *row = &bind->rows[init->offset+i];
+		AssignVarchar(cols[0], i, row->ecg_path);
+		AssignVarchar(cols[1], i, row->recorded_at);
+		AssignVarchar(cols[2], i, row->classification);
+		AssignVarchar(cols[3], i, row->symptoms);
+		AssignVarchar(cols[4], i, row->software_version);
+		AssignVarchar(cols[5], i, row->device);
+		AssignOptionalDouble(cols[6], hz_v, i, row->has_sample_rate_hz, row->sample_rate_hz);
+		AssignVarchar(cols[7], i, row->lead);
+		AssignVarchar(cols[8], i, row->unit);
+		ns[i] = row->n_samples;
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitEcgRecordingsFunction(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_ecg_recordings");
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_table_function_add_parameter(function, varchar_type);
+	duckdb_table_function_add_named_parameter(function, "ecg_path", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_table_function_set_bind(function, EcgrBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, EcgrFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
+
+static void EcgsBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_logical_type double_type = duckdb_create_logical_type(DUCKDB_TYPE_DOUBLE);
+	duckdb_logical_type ubig = duckdb_create_logical_type(DUCKDB_TYPE_UBIGINT);
+	duckdb_bind_add_result_column(info, "ecg_path", varchar_type);
+	duckdb_bind_add_result_column(info, "sample_index", ubig);
+	duckdb_bind_add_result_column(info, "value_uv", double_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_destroy_logical_type(&double_type);
+	duckdb_destroy_logical_type(&ubig);
+
+	char *path = BindPathOrError(info, "healthkit_ecg_samples");
+	if (!path) return;
+	ecgs_bind_data *bind = (ecgs_bind_data *)duckdb_malloc(sizeof(ecgs_bind_data));
+	if (!bind) { free(path); duckdb_bind_set_error(info, "out of memory"); return; }
+	memset(bind, 0, sizeof(*bind));
+	bind->path = path;
+	bind->filter = optional_named_varchar(info, "ecg_path");
+	char err[256]; err[0]='\0';
+	ah_ecg_callbacks cb = { .on_recording = NULL, .on_sample = OnEcgs, .userdata = bind };
+	if (ah_parse_ecg_export(bind->path, bind->filter, &cb, err, sizeof(err)) != 0) {
+		char msg[320];
+		snprintf(msg, sizeof(msg), "healthkit_ecg_samples: %s", err[0]?err:"parse failed");
+		DestroyEcgs(bind); duckdb_bind_set_error(info, msg); return;
+	}
+	duckdb_bind_set_bind_data(info, bind, DestroyEcgs);
+	duckdb_bind_set_cardinality(info, (idx_t)bind->count, true);
+}
+
+static void EcgsFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	ecgs_bind_data *bind = (ecgs_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) { duckdb_data_chunk_set_size(output, 0); return; }
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+	duckdb_vector v_path = duckdb_data_chunk_get_vector(output, 0);
+	duckdb_vector v_idx = duckdb_data_chunk_get_vector(output, 1);
+	duckdb_vector v_val = duckdb_data_chunk_get_vector(output, 2);
+	uint64_t *idx = (uint64_t *)duckdb_vector_get_data(v_idx);
+	double *val = (double *)duckdb_vector_get_data(v_val);
+	for (idx_t i=0;i<n;i++) {
+		const ah_ecg_sample *row = &bind->rows[init->offset+i];
+		AssignVarchar(v_path, i, row->ecg_path);
+		idx[i] = row->sample_index;
+		val[i] = row->value_uv;
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitEcgSamplesFunction(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_ecg_samples");
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_table_function_add_parameter(function, varchar_type);
+	duckdb_table_function_add_named_parameter(function, "ecg_path", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_table_function_set_bind(function, EcgsBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, EcgsFunction);
 	duckdb_register_table_function(connection, function);
 	duckdb_destroy_table_function(&function);
 }
