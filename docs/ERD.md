@@ -4,7 +4,7 @@ How a Health app **export.zip** becomes tables you can query and map.
 
 See also: [DESIGN.md](DESIGN.md), [ROADMAP.md](ROADMAP.md).
 
-Last updated: 2026-08-30.
+Last updated: 2026-10-27.
 
 ---
 
@@ -38,45 +38,71 @@ flowchart TB
   subgraph zip["export.zip"]
     XML["export.xml"]
     GPX["workout-routes/*.gpx"]
+    ECG["electrocardiograms/*.csv"]
   end
-  XML --> WO["Workout rows"]
+  XML --> WO["Workout + events/stats"]
   XML --> WR["WorkoutRoute + FileReference gpx_path"]
-  XML --> REC["Records / activity summaries / …"]
+  XML --> REC["Records / summaries / correlations / metadata / HRV BPM"]
   WR --> GPX
   GPX --> PT["Track points trkpt"]
+  ECG --> ECGR["ECG recordings + samples"]
 ```
 
 - Each export is usually a **full dump**, not a “only new data” package.
 - Outdoor walks/hikes often have a GPX; indoor workouts often do not.
+- ECG CSVs (when present) live under `electrocardiograms/`.
 
 ---
 
 ## Scanner (table functions)
 
-No persistent schema — each call scans `path`:
+No persistent schema — each call scans `path` (zip, directory, or xml). Optional named params on records: `types`, `start`, `end`.
 
 | Function | One row means |
 |---|---|
-| `healthkit_workouts(path)` | A workout summary (type, duration, distance, energy, dates) |
-| `healthkit_workout_routes(path)` | A GPS route index (`gpx_path` + parent workout dates/type) |
-| `healthkit_workout_route_points(path)` | One GPS point (`lat`/`lon`/…) |
-| `read_healthkit_export(path)` | A Health record sample |
-| `healthkit_activity_summaries(path)` | One day of rings |
+| `read_healthkit_export(path, …)` | Top-level Health **Record** sample |
+| `healthkit_workouts(path)` | Workout summary |
+| `healthkit_workout_events(path)` | Pause/resume/marker under a workout |
+| `healthkit_workout_statistics(path)` | Per-workout quantity stat (sum/min/max/avg) |
+| `healthkit_workout_routes(path)` | GPS route index (`gpx_path` + parent workout) |
+| `healthkit_workout_route_points(path)` | One GPX track point |
+| `healthkit_activity_summaries(path)` | One day of activity rings |
+| `healthkit_export_info(path)` | Export date + path (+ `has_cda` when detectable) |
+| `healthkit_me(path)` | `<Me>` characteristics (**sensitive**) |
+| `healthkit_zip_inventory(path)` | Zip/dir member catalogue (`kind`) |
+| `healthkit_correlations(path)` | Correlation parent (e.g. blood pressure) |
+| `healthkit_correlation_members(path)` | Nested Record under a Correlation |
+| `healthkit_metadata(path)` | `MetadataEntry` key/value + soft parent keys |
+| `healthkit_heartbeat_points(path)` | Instantaneous BPM under HRV records |
+| `healthkit_ecg_recordings(path)` | ECG CSV header row (no Name/DOB) |
+| `healthkit_ecg_samples(path)` | One ECG sample (µV) |
 
 ```mermaid
 erDiagram
   WORKOUT ||--o| ROUTE : "soft match type+start"
+  WORKOUT ||--o{ EVENT : "soft match type+start"
+  WORKOUT ||--o{ STAT : "soft match type+start"
   ROUTE ||--|{ POINT : "gpx_path"
+  CORR ||--|{ CMEM : "correlation keys"
+  HRV_REC ||--|{ HBPM : "parent start/type"
+  ECGREC ||--|{ ECGSAMP : "ecg_path"
 
   WORKOUT {
     string activity_type_short
     timestamptz start_date
     double duration
-    double total_distance
+  }
+  EVENT {
+    string event_type_short
+    timestamptz event_date
+    string workout_activity_type_short
+  }
+  STAT {
+    string stat_type_short
+    double sum
   }
   ROUTE {
     string gpx_path
-    string activity_type_short
     timestamptz workout_start_date
   }
   POINT {
@@ -84,7 +110,31 @@ erDiagram
     bigint point_index
     double lat
     double lon
-    timestamptz time
+  }
+  CORR {
+    string type_short
+    timestamptz start_date
+  }
+  CMEM {
+    string type_short
+    double value
+  }
+  HRV_REC {
+    string type_short
+    timestamptz start_date
+  }
+  HBPM {
+    double bpm
+    string time_text
+  }
+  ECGREC {
+    string ecg_path
+    string classification
+  }
+  ECGSAMP {
+    string ecg_path
+    bigint sample_index
+    double value_uv
   }
 ```
 
@@ -93,7 +143,12 @@ erDiagram
 | From → to | Key | Notes |
 |---|---|---|
 | Route → points | **`gpx_path`** | Strong — use for maps |
-| Workout → route | type + start/end (+ source) | Soft — good enough for UI |
+| Workout → route / events / stats | type + start (+ source) | Soft |
+| Correlation → members | correlation type + start + source | Soft |
+| HRV record → heartbeat points | parent type + start + source | Soft |
+| ECG recording → samples | **`ecg_path`** | Strong |
+
+**Semantics:** `read_healthkit_export` emits **top-level** `<Record>` only. Nested Correlation children are available via `healthkit_correlation_members` (no double-count in the records TF).
 
 ---
 

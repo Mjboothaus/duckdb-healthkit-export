@@ -39,3 +39,7 @@ Only the latest **v0.1.x-beta** line on `main` is actively maintained until a st
 ## Trademarks
 
 Not affiliated with, endorsed by, or sponsored by Apple Inc. Apple, Apple Health, and HealthKit are trademarks of Apple Inc. See [docs/BRANDING.md](docs/BRANDING.md).
+
+## Health data sensitivity
+
+Real Health exports and ECG CSVs are highly sensitive. Never commit them. The extension does not network. ECG table functions intentionally omit person-name and date-of-birth CSV headers; treat remaining ECG fields and `healthkit_me` as PHI.

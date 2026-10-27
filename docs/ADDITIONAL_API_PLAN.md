@@ -1,8 +1,8 @@
 # Additional API plan — more of `export.zip` in SQL
 
 Last updated: 2026-10-27.  
-Status: **design only** (no implementation commitment).  
-Related: [DESIGN.md](DESIGN.md) · [ERD.md](ERD.md) · [ROADMAP.md](ROADMAP.md) · [STREAMING_PLAN.md](STREAMING_PLAN.md) · [BRANDING.md](BRANDING.md)
+Status: **P1–P4 implemented** on `feature/additional-api-p1-p2` (see README). **P5** still open.  
+Related: [DESIGN.md](DESIGN.md) · [ERD.md](ERD.md) · [ROADMAP.md](ROADMAP.md) · [STREAMING_PLAN.md](STREAMING_PLAN.md) · [BRANDING.md](BRANDING.md) · [QUICKSTART.md](QUICKSTART.md)
 
 ---
 
@@ -18,15 +18,24 @@ This is complementary to [STREAMING_PLAN.md](STREAMING_PLAN.md): streaming impro
 
 | Function | Source | Status |
 |----------|--------|--------|
-| `read_healthkit_export(path)` | Top-level `<Record>` in `export.xml` | Shipped |
-| `healthkit_workouts(path)` | `<Workout>` summary attrs | Shipped |
-| `healthkit_activity_summaries(path)` | `<ActivitySummary>` | Shipped |
-| `healthkit_workout_routes(path)` | `<WorkoutRoute>` + `FileReference` | Shipped |
-| `healthkit_workout_route_points(path)` | `workout-routes/*.gpx` | Shipped |
+| `read_healthkit_export(path [, types/start/end])` | Top-level `<Record>` | **Shipped** |
+| `healthkit_workouts(path)` | `<Workout>` summary attrs | **Shipped** |
+| `healthkit_workout_events(path)` | `<WorkoutEvent>` | **Shipped** |
+| `healthkit_workout_statistics(path)` | `<WorkoutStatistics>` | **Shipped** |
+| `healthkit_activity_summaries(path)` | `<ActivitySummary>` | **Shipped** |
+| `healthkit_workout_routes(path)` | `<WorkoutRoute>` + `FileReference` | **Shipped** |
+| `healthkit_workout_route_points(path)` | `workout-routes/*.gpx` | **Shipped** |
+| `healthkit_export_info(path)` | `<ExportDate>` + path | **Shipped** |
+| `healthkit_me(path)` | `<Me>` | **Shipped** (sensitive) |
+| `healthkit_zip_inventory(path)` | Zip/dir members | **Shipped** |
+| `healthkit_correlations(path)` | `<Correlation>` parent | **Shipped** |
+| `healthkit_correlation_members(path)` | Nested Correlation `<Record>` | **Shipped** |
+| `healthkit_metadata(path)` | `<MetadataEntry>` | **Shipped** |
+| `healthkit_heartbeat_points(path)` | `<InstantaneousBeatsPerMinute>` under HRV | **Shipped** |
+| `healthkit_ecg_recordings(path)` | ECG CSV headers (no Name/DOB) | **Shipped** |
+| `healthkit_ecg_samples(path)` | ECG sample µV | **Shipped** |
 
-**Deliberate skips today** (parser comments / DESIGN): nested Correlation `<Record>` children, `<WorkoutEvent>`, `<MetadataEntry>`, `<Me>`, `<ExportDate>`, clinical/ECG as first-class tables, CDA XML.
-
-**Planned but not API-shaped yet** (README / streaming plan): named parameters `types`, `start`, `end`, `ignore_errors`.
+**Still skipped / P5:** nested Correlation children remain out of `read_healthkit_export` (by design); clinical/CDA/audiogram/vision TFs; `ignore_errors`; streaming execute.
 
 ---
 
@@ -38,17 +47,17 @@ Inventory from private multi-year exports (structure only; no PHI committed). Co
 
 | Element | Role | Approx scale (one large export) | Exposed today? |
 |---------|------|----------------------------------|----------------|
-| `ExportDate` | When the zip was produced | 1 | No |
-| `Me` | Characteristics (DOB, sex, blood type, …) | 1 | No |
+| `ExportDate` | When the zip was produced | 1 | **Yes** (`healthkit_export_info`) |
+| `Me` | Characteristics (DOB, sex, blood type, …) | 1 | **Yes** (`healthkit_me`, sensitive) |
 | `Record` | Samples / categories | millions | **Yes** (top-level only) |
-| `Correlation` | Grouped records (e.g. BP) | few–many | Parent ignored; nested records skipped |
+| `Correlation` | Grouped records (e.g. BP) | few–many | **Yes** parents + members TFs; nested still skipped in records TF |
 | `Workout` | Workout summary | hundreds–thousands | **Yes** (attrs only) |
-| `WorkoutEvent` | Pause/resume/marker under workout | thousands–tens of thousands | No |
-| `WorkoutStatistics` | Per-workout aggregates (distance, HR, …) | thousands+ | No |
-| `MetadataEntry` | Key/value on Record/Workout/… | hundreds of thousands–millions | No |
+| `WorkoutEvent` | Pause/resume/marker under workout | thousands–tens of thousands | **Yes** |
+| `WorkoutStatistics` | Per-workout aggregates (distance, HR, …) | thousands+ | **Yes** |
+| `MetadataEntry` | Key/value on Record/Workout/… | hundreds of thousands–millions | **Yes** |
 | `WorkoutRoute` / `FileReference` | Link to GPX | hundreds–thousands | **Yes** |
 | `ActivitySummary` | Daily rings | thousands | **Yes** |
-| `InstantaneousBeatsPerMinute` | HR series points (often under a series/workout context) | hundreds of thousands | No |
+| `InstantaneousBeatsPerMinute` | HRV IBPM list under HRV records | hundreds of thousands | **Yes** |
 | `ClinicalRecord` | Clinical document stubs (when present) | 0–n | No |
 | `Audiogram` / `VisionPrescription` | Hearing / vision (when present) | 0–n | No |
 | `HeartbeatSeries` (and similar series containers) | Structured series wrappers | 0–n | No |
@@ -58,7 +67,7 @@ Inventory from private multi-year exports (structure only; no PHI committed). Co
 | Path pattern | Format | Exposed today? |
 |--------------|--------|----------------|
 | `workout-routes/*.gpx` | GPX track | **Yes** via route points TF |
-| `electrocardiograms/ecg_*.csv` | CSV: header metadata + µV samples | No |
+| `electrocardiograms/ecg_*.csv` | CSV: header metadata + µV samples | **Yes** (Name/DOB omitted) |
 | `export_cda.xml` | Clinical Document Architecture (when present) | No |
 | Other clinical attachments | Varies by iOS / locale | No |
 
@@ -272,38 +281,38 @@ High-cardinality TFs (`metadata`, `heartbeat_points`, `ecg_samples`, filtered re
 
 ### Phase P0 — Spec freeze (short)
 
-- [ ] Confirm Correlation policy (A + B recommended).
-- [ ] Confirm whether `healthkit_me` ships or is documented-out.
-- [ ] Confirm ECG header column redaction policy.
-- [ ] Define soft vs hashed workout join keys.
-- [ ] Extend fixture XML with: WorkoutStatistics, MetadataEntry, InstantaneousBeatsPerMinute, fake ECG CSV member.
+- [x] Confirm Correlation policy (A + B recommended) — **done**
+- [x] Confirm whether `healthkit_me` ships — **ships** (documented sensitive)
+- [x] Confirm ECG header column redaction — **Name + DOB omitted**
+- [x] Soft workout join keys for now (hashed `workout_uid` deferred)
+- [x] Fixture: WorkoutStatistics, MetadataEntry, InstantaneousBeatsPerMinute, synthetic ECG CSV
 
 ### Phase P1 — Workout depth (v0.x minor)
 
-- [ ] `healthkit_workout_events`
-- [ ] `healthkit_workout_statistics`
-- [ ] README + ERD join examples
-- [ ] SQLLogic + pytest golden
+- [x] `healthkit_workout_events`
+- [x] `healthkit_workout_statistics`
+- [x] README + ERD join examples
+- [x] SQLLogic + pytest golden
 
 **Why first:** high user value, moderate cardinality, reuses workout context already parsed.
 
 ### Phase P2 — Scan ergonomics
 
-- [ ] Named params on `read_healthkit_export`: `types`, `start`, `end` (requires streaming pull loop ideally)
-- [ ] `healthkit_export_info` + `healthkit_zip_inventory`
-- [ ] Optional `healthkit_me`
+- [x] Named params on `read_healthkit_export`: `types`, `start`, `end` (bind/collect; streaming pushdown later)
+- [x] `healthkit_export_info` + `healthkit_zip_inventory`
+- [x] `healthkit_me`
 
 ### Phase P3 — Metadata + correlations
 
-- [ ] `healthkit_metadata` (or parent-specific metadata TFs if generic is awkward)
-- [ ] `healthkit_correlations` + `healthkit_correlation_members`
-- [ ] Document double-count rules vs top-level records
+- [x] `healthkit_metadata`
+- [x] `healthkit_correlations` + `healthkit_correlation_members`
+- [x] Document double-count rules vs top-level records
 
 ### Phase P4 — Series + ECG
 
-- [ ] `healthkit_heartbeat_points` (or series generic)
-- [ ] `healthkit_ecg_recordings` + streaming `healthkit_ecg_samples`
-- [ ] Privacy review of ECG headers
+- [x] `healthkit_heartbeat_points` (HRV IBPM)
+- [x] `healthkit_ecg_recordings` + `healthkit_ecg_samples` (bind-buffer samples; filter via `ecg_path`)
+- [x] Privacy: Name + Date of Birth never exposed
 
 ### Phase P5 — Clinical / CDA / audiogram / vision
 
@@ -358,14 +367,15 @@ Community: bump `description.yml` `repo.ref` (+ `extension.version`) after each 
 
 ---
 
-## 13. Open questions
+## 13. Open questions (remaining)
 
-1. Should workout children use **soft keys only**, or invest early in **`workout_uid`**?  
-2. Is a single `healthkit_metadata` TF acceptable, or per-parent metadata TFs?  
-3. ECG: omit person-identifying header columns entirely?  
-4. Do we ever emit nested Correlation records from `read_healthkit_export`, or only via correlation TFs?  
-5. Parameter syntax under stable C API: named params vs trailing optional VARCHAR/BOOLEAN args — confirm against current `duckdb_extension.h` capabilities before locking README examples.  
-6. Should `healthkit_store` (Python) gain matching tables in the same release train, or lag one version?
+1. Invest in hashed **`workout_uid`** vs keep soft keys only?  
+2. Per-parent metadata TFs vs single `healthkit_metadata` (shipped generic)?  
+3. ~~ECG identity headers~~ — **resolved: omit Name + DOB**  
+4. ~~Nested Correlation in records TF~~ — **resolved: members TF only**  
+5. ~~Named params~~ — **resolved: VARCHAR named params**  
+6. Should `healthkit_store` (Python) gain matching tables in the same release train, or lag one version?  
+7. When to community-publish the expanded API (`repo.ref` + version bump)?
 
 ---
 
