@@ -202,6 +202,14 @@ walk-stories-edit:
 explore:
     uv run --project . --extra notebooks marimo edit notebooks/explore_export.py
 
+# P1–P4 API explorer (prefer local just debug build; optional real export path)
+explore-apis:
+    @echo "Tip: just debug first so P1–P4 symbols load. Real zip via HEALTHKIT_EXPORT_ZIP=…"
+    uv run --project . --extra notebooks marimo edit --no-token --no-sandbox notebooks/explore_new_apis.py
+
+explore-apis-run:
+    uv run --project . --extra notebooks marimo run --no-token --no-sandbox notebooks/explore_new_apis.py
+
 # Map walks/hikes from local DB (needs maps + notebooks extras)
 map-walks:
     @test -f output/healthkit_store.duckdb || { echo "Missing output/healthkit_store.duckdb — run: just build-db export_zip=/path/to/export.zip"; exit 1; }

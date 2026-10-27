@@ -154,6 +154,9 @@ just pytest-ext
 
 ```bash
 uv sync
+just debug   # local build needed for newest table functions
+just explore-apis   # P1–P4 API explorer (fixture or real zip)
+# HEALTHKIT_EXPORT_ZIP=~/path/to/export.zip just explore-apis
 just build-db export_zip=/path/to/export.zip
 just explore
 just map-walks
