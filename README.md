@@ -71,7 +71,7 @@ This project fills the gap between those: **HealthKit-aware, in-process SQL** ai
 | Platforms | **macOS (arm64), Linux, Windows** (native). **Wasm** not yet. Community **osx_amd64** dropped from DuckDB 2.0 |
 | DuckDB | Host **2.0.0** LTS (CI target); **1.5.x** until March 2027 |
 | Correctness | SQLLogic + fixture golden + pytest vs `healthkit-to-sqlite` (top-level records) |
-| Limits | Parse buffers in bind (RAM ∝ export size); named `types`/`start`/`end` filters not shipped yet |
+| Limits | Parse buffers in bind (RAM ∝ export size); streaming execute not yet |
 
 See [RELEASE_NOTES.md](docs/RELEASE_NOTES.md) and [ROADMAP.md](docs/ROADMAP.md).
 
@@ -143,7 +143,7 @@ Full walkthrough: [QUICKSTART.md](docs/QUICKSTART.md).
 
 `path` may be a zip, a directory containing `export.xml`, or `export.xml` itself.
 
-Named parameters `types` / `start` / `end` / `ignore_errors` are **planned** (filter in SQL for now).
+Named parameters `types` / `start` / `end` are **shipped** (comma-separated `types`; Apple-style date strings for range). `ignore_errors` is not implemented.
 
 ### `healthkit_workouts(path)` — **implemented**
 
@@ -161,11 +161,49 @@ GPX `trkpt` rows: lat/lon/ele/time, optional speed/course/h_acc/v_acc, joined to
 
 Daily rings. Both `appleMoveMinutes*` (older) and `appleMoveTime*` (iOS 14+) as nullable columns.
 
-### Not in v0.1.x core
+### `healthkit_workout_events(path)` / `healthkit_workout_statistics(path)` — **implemented**
 
-ECG as a first-class table, Correlation as a table, Wasm/browser builds, Watch/iPhone dedupe, named `types`/`start`/`end` pushdown, streaming execute.
+Nested under `<Workout>`: pause/resume markers and per-workout quantity stats. Soft-join to workouts on `workout_activity_type_short` + `workout_start_date`.
 
-**Semantics:** top-level `<Record>` only — nested Correlation children are skipped (see [DESIGN.md](docs/DESIGN.md) and tests).
+### `healthkit_export_info(path)` / `healthkit_me(path)` / `healthkit_zip_inventory(path)` — **implemented**
+
+Export date + path, `<Me>` characteristics (sensitive), and zip member catalogue (`kind`: `export_xml` / `gpx` / `ecg_csv` / `cda` / …).
+
+### `healthkit_correlations(path)` / `healthkit_correlation_members(path)` — **implemented**
+
+Correlation parents (e.g. blood pressure) and nested member records. Top-level `read_healthkit_export` still skips nested Correlation children (no double-count).
+
+### `healthkit_metadata(path)` — **implemented**
+
+`<MetadataEntry key/value>` with soft parent keys (`parent_kind`: `record` / `workout` / `correlation`).
+
+
+### `healthkit_heartbeat_points(path)` — **implemented**
+
+Instantaneous BPM readings nested under HRV (`HeartRateVariabilityMetadataList`). Soft-joins to the parent HRV record.
+
+### `healthkit_ecg_recordings(path)` / `healthkit_ecg_samples(path)` — **implemented**
+
+ECG CSVs under `electrocardiograms/`. Optional named filter `ecg_path := '…substring…'`.
+
+**Privacy:** the extension **never returns** ECG CSV header fields **Name** or **Date of Birth**. Prefer device/classification/timing only. Samples can be large — filter with `ecg_path` when possible.
+
+### Record filters (named parameters)
+
+```sql
+FROM read_healthkit_export('export.zip', types := 'HeartRate,StepCount');
+FROM read_healthkit_export('export.zip', start := '2024-01-01 00:00:00 +1100', end := '2024-12-31 23:59:59 +1100');
+```
+
+`types` is a comma-separated list of `type_short` or full HealthKit type ids. `start` / `end` filter on record `start_date` (Apple export date strings).
+
+### Not in core yet
+
+Wasm/browser builds, Watch/iPhone dedupe, streaming execute, clinical/CDA/audiogram/vision tables, `ignore_errors` parameter.
+
+**Semantics:** top-level `<Record>` only in `read_healthkit_export` — nested Correlation children are skipped there (use `healthkit_correlation_members`). See [DESIGN.md](docs/DESIGN.md).
+
+**More API design history:** [docs/ADDITIONAL_API_PLAN.md](docs/ADDITIONAL_API_PLAN.md).
 
 **Optional add-ons** (same repo, not required to use the extension): local DuckDB via `just build-db`, maps/photos/journeys — see [PYTHON_PACKAGE.md](docs/PYTHON_PACKAGE.md).
 
@@ -222,15 +260,17 @@ Illustrative offline smoke on one personal export kept **outside** git (~270 M
 
 Wall-clock and peak RAM depend on machine, disk, and whether you pull **all** records vs filtered `COPY`, and whether you also ingest **all** GPX points. Full GPS `build-db` is typically **minutes**, not seconds, on a large multi-year export.
 
-**Optimisation opportunities (not all shipped):** streaming execute (emit chunks without buffering the whole bind), streaming zip inflate, named `types`/`start`/`end` pushdown, string interning, incremental DB append by `gpx_path`. Tracked in [ROADMAP.md](docs/ROADMAP.md).
+**Optimisation opportunities (not all shipped):** streaming execute (emit chunks without buffering the whole bind), streaming zip inflate, true filter pushdown during streaming execute, string interning, incremental DB append by `gpx_path`. Tracked in [ROADMAP.md](docs/ROADMAP.md).
 
 **Recommended workflow:** scan → filter → Parquet and/or local DuckDB → analytics/maps. Do not loop `FROM read_healthkit_export(huge.zip)` in a notebook cell.
 
 ## Privacy
 
 - No telemetry and no network I/O in the extension
-- CI/fixtures use synthetic XML only
+- CI/fixtures use synthetic XML/ECG only
 - Do not commit a real `export.zip`
+- `healthkit_me` exposes sensitive characteristics from `<Me>` — treat like PHI
+- ECG helpers **omit** CSV **Name** and **Date of Birth** headers; still keep real ECG files offline
 
 ## Licence
 

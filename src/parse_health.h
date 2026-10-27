@@ -89,11 +89,111 @@ typedef struct {
 	char gpx_path[AH_ATTR_MAX];
 } ah_workout_route;
 
+/* Nested under <Workout>. */
+typedef struct {
+	char event_type[AH_TYPE_MAX];
+	char event_type_short[AH_TYPE_MAX];
+	char event_date[64];
+	bool has_duration;
+	double duration;
+	char duration_unit[32];
+	char workout_activity_type[AH_TYPE_MAX];
+	char workout_activity_type_short[AH_TYPE_MAX];
+	char workout_start_date[64];
+	char workout_end_date[64];
+	char workout_source_name[AH_ATTR_MAX];
+} ah_workout_event;
+
+typedef struct {
+	char stat_type[AH_TYPE_MAX];
+	char stat_type_short[AH_TYPE_MAX];
+	char start_date[64];
+	char end_date[64];
+	char unit[64];
+	bool has_sum;
+	double sum;
+	bool has_minimum;
+	double minimum;
+	bool has_maximum;
+	double maximum;
+	bool has_average;
+	double average;
+	char workout_activity_type[AH_TYPE_MAX];
+	char workout_activity_type_short[AH_TYPE_MAX];
+	char workout_start_date[64];
+	char workout_end_date[64];
+	char workout_source_name[AH_ATTR_MAX];
+} ah_workout_statistic;
+
+typedef struct {
+	char export_date[64];
+} ah_export_info;
+
+typedef struct {
+	char date_of_birth[64];
+	char biological_sex[AH_ATTR_MAX];
+	char blood_type[AH_ATTR_MAX];
+	char fitzpatrick_skin_type[AH_ATTR_MAX];
+} ah_me;
+
+typedef struct {
+	char type[AH_TYPE_MAX];
+	char type_short[AH_TYPE_MAX];
+	char start_date[64];
+	char end_date[64];
+	char creation_date[64];
+	char source_name[AH_ATTR_MAX];
+	char source_version[64];
+} ah_correlation;
+
+/* Nested <Record> under <Correlation> (not emitted by on_record). */
+typedef struct {
+	char correlation_type[AH_TYPE_MAX];
+	char correlation_type_short[AH_TYPE_MAX];
+	char correlation_start_date[64];
+	char correlation_end_date[64];
+	char correlation_source_name[AH_ATTR_MAX];
+	ah_record member;
+} ah_correlation_member;
+
+typedef struct {
+	char parent_kind[16]; /* record | workout | correlation | unknown */
+	char parent_type[AH_TYPE_MAX];
+	char parent_type_short[AH_TYPE_MAX];
+	char parent_start_date[64];
+	char parent_end_date[64];
+	char parent_source_name[AH_ATTR_MAX];
+	char key[AH_ATTR_MAX];
+	char value[AH_ATTR_MAX];
+} ah_metadata_entry;
+
+/* InstantaneousBeatsPerMinute under HeartRateVariabilityMetadataList. */
+typedef struct {
+	double bpm;
+	char time_text[64]; /* export clock string, e.g. "2:50:16.20 am" */
+	char parent_type[AH_TYPE_MAX];
+	char parent_type_short[AH_TYPE_MAX];
+	char parent_start_date[64];
+	char parent_end_date[64];
+	char parent_source_name[AH_ATTR_MAX];
+	double parent_value; /* HRV SDNN when present */
+	bool has_parent_value;
+	char parent_unit[64];
+} ah_heartbeat_point;
+
 typedef struct {
 	void (*on_record)(const ah_record *row, void *userdata);
 	void (*on_workout)(const ah_workout *row, void *userdata);
 	void (*on_activity_summary)(const ah_activity_summary *row, void *userdata);
 	void (*on_workout_route)(const ah_workout_route *row, void *userdata);
+	void (*on_workout_event)(const ah_workout_event *row, void *userdata);
+	void (*on_workout_statistic)(const ah_workout_statistic *row, void *userdata);
+	void (*on_export_info)(const ah_export_info *row, void *userdata);
+	void (*on_me)(const ah_me *row, void *userdata);
+	void (*on_correlation)(const ah_correlation *row, void *userdata);
+	void (*on_correlation_member)(const ah_correlation_member *row, void *userdata);
+	void (*on_metadata_entry)(const ah_metadata_entry *row, void *userdata);
+	void (*on_heartbeat_point)(const ah_heartbeat_point *row, void *userdata);
 	void *userdata;
 } ah_parse_callbacks;
 
@@ -102,6 +202,12 @@ typedef struct {
 	size_t workouts;
 	size_t activity_summaries;
 	size_t workout_routes;
+	size_t workout_events;
+	size_t workout_statistics;
+	size_t correlations;
+	size_t correlation_members;
+	size_t metadata_entries;
+	size_t heartbeat_points;
 	size_t skipped_nested_records;
 } ah_parse_stats;
 

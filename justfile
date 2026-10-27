@@ -202,6 +202,14 @@ walk-stories-edit:
 explore:
     uv run --project . --extra notebooks marimo edit notebooks/explore_export.py
 
+# P1–P4 API explorer (prefer local just debug build; optional real export path)
+explore-apis:
+    @echo "Tip: just debug first so P1–P4 symbols load. Real zip via HEALTHKIT_EXPORT_ZIP=…"
+    uv run --project . --extra notebooks marimo edit --no-token --no-sandbox notebooks/explore_new_apis.py
+
+explore-apis-run:
+    uv run --project . --extra notebooks marimo run --no-token --no-sandbox notebooks/explore_new_apis.py
+
 # Map walks/hikes from local DB (needs maps + notebooks extras)
 map-walks:
     @test -f output/healthkit_store.duckdb || { echo "Missing output/healthkit_store.duckdb — run: just build-db export_zip=/path/to/export.zip"; exit 1; }
@@ -218,9 +226,10 @@ web-thumbs journey_id="":
     uv run --project . python scripts/build_web_thumbs.py {{journey_id}}
 
 # Extension pytest (fixture golden + healthkit-to-sqlite). Builds debug if missing.
+# Invoke the module to avoid stale console-script paths after moving the project.
 pytest-ext: ensure-ext fixture
-    uv run --project . --extra dev --group dev pytest tests/test_extension_smoke.py tests/test_compare_healthkit_to_sqlite.py -q
+    uv run --project . --extra dev --group dev python -m pytest tests/test_extension_smoke.py tests/test_compare_healthkit_to_sqlite.py -q
 
 # Optional slow real-export compare (path outside repo)
 pytest-ext-real export_zip: ensure-ext
-    HEALTHKIT_EXPORT_ZIP={{export_zip}} uv run --project . --extra dev --group dev pytest tests/test_compare_healthkit_to_sqlite.py -q -k real
+    HEALTHKIT_EXPORT_ZIP={{export_zip}} uv run --project . --extra dev --group dev python -m pytest tests/test_compare_healthkit_to_sqlite.py -q -k real

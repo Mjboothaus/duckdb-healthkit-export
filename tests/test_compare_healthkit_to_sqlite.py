@@ -103,8 +103,8 @@ def test_record_counts_document_correlation_difference(con, fixture_zip, hk_conn
         f"SELECT count(*) FROM read_healthkit_export('{sql_path(fixture_zip)}')"
     ).fetchone()[0]
     hk_recs = hk_all_records(hk_conn)
-    assert duck_n == 7
-    assert len(hk_recs) == 9  # +2 nested Correlation BP records
+    assert duck_n == 9  # 7 original + Height with metadata
+    assert len(hk_recs) == 11  # +2 nested Correlation BP records
 
     nested_extra = len(hk_recs) - duck_n
     assert nested_extra == 2

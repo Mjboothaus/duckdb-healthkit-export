@@ -188,6 +188,32 @@ def build_xml() -> str:
     for rec in RECORDS + BP_RECORDS:
         lines.append(_record_xml(rec))
 
+    # Open Record + MetadataEntry for healthkit_metadata coverage.
+    lines.append(
+        '  <Record type="HKQuantityTypeIdentifierHeight" unit="cm" value="180" '
+        'sourceName="Demo Phone" sourceVersion="18.0" '
+        'creationDate="2026-01-10 09:00:00 +1100" '
+        'startDate="2026-01-10 09:00:00 +1100" '
+        'endDate="2026-01-10 09:00:00 +1100">'
+    )
+    lines.append('    <MetadataEntry key="HKWasUserEntered" value="1"/>')
+    lines.append("  </Record>")
+
+    # Heart rate variability + instantaneous BPM list (healthkit_heartbeat_points).
+    lines.append(
+        '  <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" unit="ms" value="42.5" '
+        'sourceName="Demo Watch" sourceVersion="11.0" '
+        'creationDate="2026-01-15 06:40:00 +1100" '
+        'startDate="2026-01-15 06:39:00 +1100" '
+        'endDate="2026-01-15 06:40:00 +1100">'
+    )
+    lines.append("    <HeartRateVariabilityMetadataList>")
+    lines.append('      <InstantaneousBeatsPerMinute bpm="60" time="6:39:10.00 am"/>')
+    lines.append('      <InstantaneousBeatsPerMinute bpm="62" time="6:39:20.00 am"/>')
+    lines.append('      <InstantaneousBeatsPerMinute bpm="58" time="6:39:30.00 am"/>')
+    lines.append("    </HeartRateVariabilityMetadataList>")
+    lines.append("  </Record>")
+
     lines.append(
         '  <Correlation type="HKCorrelationTypeIdentifierBloodPressure" '
         'sourceName="Demo Phone" sourceVersion="18.0" '
@@ -203,6 +229,16 @@ def build_xml() -> str:
         lines.append(f'  <Workout {_attrs(w)}>')
         lines.append(
             '    <WorkoutEvent type="HKWorkoutEventTypePause" date="2026-01-15 07:10:00 +1100"/>'
+        )
+        lines.append(
+            '    <WorkoutStatistics type="HKQuantityTypeIdentifierActiveEnergyBurned" '
+            'startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100" '
+            'sum="280" unit="kcal"/>'
+        )
+        lines.append(
+            '    <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" '
+            'startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100" '
+            'sum="4.2" unit="km" average="4.2"/>'
         )
         lines.append(
             '    <WorkoutRoute sourceName="Demo Phone" sourceVersion="18.0" '
@@ -265,7 +301,27 @@ def write_golden_records(path: Path) -> None:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         # Top-level records only (BP appears once, not via Correlation children).
-        for rec in RECORDS + BP_RECORDS:
+        height = {
+            "type": "HKQuantityTypeIdentifierHeight",
+            "unit": "cm",
+            "value": "180",
+            "sourceName": "Demo Phone",
+            "sourceVersion": "18.0",
+            "creationDate": "2026-01-10 09:00:00 +1100",
+            "startDate": "2026-01-10 09:00:00 +1100",
+            "endDate": "2026-01-10 09:00:00 +1100",
+        }
+        hrv = {
+            "type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "value": "42.5",
+            "sourceName": "Demo Watch",
+            "sourceVersion": "11.0",
+            "creationDate": "2026-01-15 06:40:00 +1100",
+            "startDate": "2026-01-15 06:39:00 +1100",
+            "endDate": "2026-01-15 06:40:00 +1100",
+        }
+        for rec in RECORDS + BP_RECORDS + [height, hrv]:
             raw = rec["value"] or ""
             numeric = _is_float(raw)
             writer.writerow(
@@ -286,6 +342,25 @@ def write_golden_records(path: Path) -> None:
 
 DEMO_GPX = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx version=\"1.1\" creator=\"apple_health_fixture\">\n  <trk>\n    <name>Demo Run</name>\n    <trkseg>\n      <trkpt lat=\"-33.8688\" lon=\"151.2093\"><ele>12.0</ele><time>2026-01-14T20:00:00Z</time></trkpt>\n      <trkpt lat=\"-33.8690\" lon=\"151.2100\"><ele>13.5</ele><time>2026-01-14T20:05:00Z</time></trkpt>\n      <trkpt lat=\"-33.8695\" lon=\"151.2110\"><ele>14.0</ele><time>2026-01-14T20:10:00Z</time></trkpt>\n    </trkseg>\n  </trk>\n</gpx>\n"""
 
+# Synthetic ECG CSV — includes identity header lines that the extension MUST ignore.
+DEMO_ECG = """Name,Demo Subject
+Date of Birth,\"1 Jan 1990\"
+Recorded Date,2026-01-15 12:00:00 +1100
+Classification,Sinus Rhythm
+Symptoms,
+Software Version,1.90
+Device,\"WatchDemo,1\"
+Sample Rate,512 hertz
+
+Lead,Lead I
+Unit,uV
+
+-10.0
+0.0
+10.5
+20.0
+"""
+
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     GOLDEN.mkdir(parents=True, exist_ok=True)
@@ -302,15 +377,21 @@ def main() -> None:
             "apple_health_export/workout-routes/route_2026-01-15_7.25am.gpx",
             DEMO_GPX,
         )
+        zf.writestr(
+            "apple_health_export/electrocardiograms/ecg_demo.csv",
+            DEMO_ECG,
+        )
 
     write_golden_records(GOLDEN / "records.csv")
 
     print(f"wrote {xml_path.relative_to(ROOT)}")
     print(f"wrote {zip_path.relative_to(ROOT)}")
     print(f"wrote { (GOLDEN / 'records.csv').relative_to(ROOT) }")
-    print(f"records (top-level): {len(RECORDS) + len(BP_RECORDS)}")
+    print(f"records (top-level): {len(RECORDS) + len(BP_RECORDS) + 2}")  # + Height + HRV
     print(f"workouts: {len(WORKOUTS)}")
     print("workout routes: 1")
+    print("workout events: 1")
+    print("workout statistics: 2")
     print(f"activity summaries: {len(SUMMARIES)}")
 
 
