@@ -73,20 +73,25 @@ Versioning: early **0.x** beta tags; breaking changes allowed until 1.0.
 
 ## [Unreleased]
 
+### Added
+- `healthkit_workout_events(path)` and `healthkit_workout_statistics(path)` (workout children).
+- `healthkit_export_info(path)`, `healthkit_me(path)`, `healthkit_zip_inventory(path)`.
+- Named filters on `read_healthkit_export`: `types`, `start`, `end` (VARCHAR).
+- Design note: [docs/ADDITIONAL_API_PLAN.md](docs/ADDITIONAL_API_PLAN.md).
+
 ### Changed
 - Target **DuckDB 2.0.0 LTS** as the CI/host build (`extension-ci-tools` → `v2.0-cyanoptera`, `duckdb_version: v2.0.0`).
 - Keep **stable C Extension API** (`C_STRUCT`, `TARGET_DUCKDB_VERSION=v1.2.0`, V1 entrypoint). C API v2 is experimental and not required.
 - CI `exclude_archs` adds **`osx_amd64`** (community extensions no longer built for Intel macOS from DuckDB 2.0).
 
 ### Notes
-- Community listing still needs a `description.yml` `repo.ref` bump after this lands on `main`.
+- Community `healthkit_export` rebuilt for DuckDB 2.0.0 ([community-extensions#3397](https://github.com/duckdb/community-extensions/pull/3397)).
 - DuckDB 2.0 uses storage version 69 by default; files written by 2.0 are not readable by DuckDB &lt; 2.0.
 
 ### Planned
 
 - Streaming table-function execute (bounded memory)
-- Named `types` / `start` / `end` parameters
-- Community rebuild for DuckDB 2.0.0 CDN
+- Correlations / metadata / ECG table functions (see ADDITIONAL_API_PLAN)
 
 See [ROADMAP.md](docs/ROADMAP.md).
 

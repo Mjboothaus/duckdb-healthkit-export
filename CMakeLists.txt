@@ -31,6 +31,7 @@ project(${EXTENSION_NAME} LANGUAGES C)
 # Create Extension library
 set(EXTENSION_SOURCES
         src/healthkit_export_tf.c
+        src/healthkit_export_extra_tf.c
         src/healthkit_export_extension.c
         src/parse_health.c
         src/zip_source.c

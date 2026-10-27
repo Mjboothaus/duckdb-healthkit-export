@@ -161,9 +161,26 @@ GPX `trkpt` rows: lat/lon/ele/time, optional speed/course/h_acc/v_acc, joined to
 
 Daily rings. Both `appleMoveMinutes*` (older) and `appleMoveTime*` (iOS 14+) as nullable columns.
 
-### Not in v0.1.x core
+### `healthkit_workout_events(path)` / `healthkit_workout_statistics(path)` — **implemented**
 
-ECG as a first-class table, Correlation as a table, Wasm/browser builds, Watch/iPhone dedupe, named `types`/`start`/`end` pushdown, streaming execute.
+Nested under `<Workout>`: pause/resume markers and per-workout quantity stats. Soft-join to workouts on `workout_activity_type_short` + `workout_start_date`.
+
+### `healthkit_export_info(path)` / `healthkit_me(path)` / `healthkit_zip_inventory(path)` — **implemented**
+
+Export date + path, `<Me>` characteristics (sensitive), and zip member catalogue (`kind`: `export_xml` / `gpx` / `ecg_csv` / `cda` / …).
+
+### Record filters (named parameters)
+
+```sql
+FROM read_healthkit_export('export.zip', types := 'HeartRate,StepCount');
+FROM read_healthkit_export('export.zip', start := '2024-01-01 00:00:00 +1100', end := '2024-12-31 23:59:59 +1100');
+```
+
+`types` is a comma-separated list of `type_short` or full HealthKit type ids. `start` / `end` filter on record `start_date` (Apple export date strings).
+
+### Not in core yet
+
+ECG as a first-class table, Correlation as a table, Wasm/browser builds, Watch/iPhone dedupe, streaming execute.
 
 **Semantics:** top-level `<Record>` only — nested Correlation children are skipped (see [DESIGN.md](docs/DESIGN.md) and tests).
 

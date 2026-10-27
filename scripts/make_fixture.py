@@ -205,6 +205,16 @@ def build_xml() -> str:
             '    <WorkoutEvent type="HKWorkoutEventTypePause" date="2026-01-15 07:10:00 +1100"/>'
         )
         lines.append(
+            '    <WorkoutStatistics type="HKQuantityTypeIdentifierActiveEnergyBurned" '
+            'startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100" '
+            'sum="280" unit="kcal"/>'
+        )
+        lines.append(
+            '    <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" '
+            'startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100" '
+            'sum="4.2" unit="km" average="4.2"/>'
+        )
+        lines.append(
             '    <WorkoutRoute sourceName="Demo Phone" sourceVersion="18.0" '
             'device="&lt;&lt;HKDevice: 0x0, name:Demo Phone&gt;&gt;" '
             'creationDate="2026-01-15 07:26:00 +1100" '
@@ -311,6 +321,8 @@ def main() -> None:
     print(f"records (top-level): {len(RECORDS) + len(BP_RECORDS)}")
     print(f"workouts: {len(WORKOUTS)}")
     print("workout routes: 1")
+    print("workout events: 1")
+    print("workout statistics: 2")
     print(f"activity summaries: {len(SUMMARIES)}")
 
 

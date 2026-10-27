@@ -654,3 +654,172 @@ int ah_parse_health_path(const char *path, const ah_parse_callbacks *cb, ah_pars
 	}
 	return rc;
 }
+
+static void classify_member_kind(const char *name, size_t name_len, char *kind, size_t kind_len) {
+	if (name_len > 0 && name[name_len - 1] == '/') {
+		snprintf(kind, kind_len, "directory");
+		return;
+	}
+	if (name_is_export_xml(name, name_len)) {
+		snprintf(kind, kind_len, "export_xml");
+		return;
+	}
+	if (ends_with_ci(name, ".gpx")) {
+		snprintf(kind, kind_len, "gpx");
+		return;
+	}
+	if (ends_with_ci(name, ".csv") && strstr(name, "electrocardiogram")) {
+		snprintf(kind, kind_len, "ecg_csv");
+		return;
+	}
+	if (ends_with_ci(name, "export_cda.xml") || (ends_with_ci(name, ".xml") && strstr(name, "cda"))) {
+		snprintf(kind, kind_len, "cda");
+		return;
+	}
+	snprintf(kind, kind_len, "other");
+}
+
+static int list_zip_members(const char *path, ah_zip_member **out, size_t *count, char *err, size_t err_len) {
+	FILE *fp = fopen(path, "rb");
+	if (!fp) {
+		set_err(err, err_len, "fopen zip failed");
+		return 1;
+	}
+	zip_end_record eocd;
+	if (find_end_of_central_dir(fp, &eocd) != 0) {
+		fclose(fp);
+		set_err(err, err_len, "not a zip or missing EOCD");
+		return 1;
+	}
+	if (fseek(fp, (long)eocd.cd_offset, SEEK_SET) != 0) {
+		fclose(fp);
+		set_err(err, err_len, "seek central directory failed");
+		return 1;
+	}
+	size_t cap = eocd.cd_entries_total ? (size_t)eocd.cd_entries_total : 16;
+	ah_zip_member *rows = (ah_zip_member *)calloc(cap, sizeof(ah_zip_member));
+	if (!rows) {
+		fclose(fp);
+		set_err(err, err_len, "out of memory");
+		return 1;
+	}
+	size_t n = 0;
+	for (uint16_t i = 0; i < eocd.cd_entries_total; i++) {
+		zip_central_header ch;
+		if (!read_fully(fp, &ch, sizeof(ch))) {
+			free(rows);
+			fclose(fp);
+			set_err(err, err_len, "read central header failed");
+			return 1;
+		}
+		if (ch.signature != 0x02014b50) {
+			free(rows);
+			fclose(fp);
+			set_err(err, err_len, "bad central header signature");
+			return 1;
+		}
+		char namebuf[AH_ZIP_MEMBER_PATH_MAX];
+		size_t name_len = ch.name_len;
+		if (name_len >= sizeof(namebuf)) {
+			name_len = sizeof(namebuf) - 1;
+		}
+		if (name_len > 0) {
+			if (!read_fully(fp, namebuf, name_len)) {
+				free(rows);
+				fclose(fp);
+				set_err(err, err_len, "read member name failed");
+				return 1;
+			}
+		}
+		namebuf[name_len] = '\0';
+		/* skip remaining name bytes if truncated for display */
+		if (ch.name_len > name_len) {
+			if (fseek(fp, (long)(ch.name_len - name_len), SEEK_CUR) != 0) {
+				free(rows);
+				fclose(fp);
+				set_err(err, err_len, "seek past name failed");
+				return 1;
+			}
+		}
+		if (ch.extra_len || ch.comment_len) {
+			if (fseek(fp, (long)ch.extra_len + (long)ch.comment_len, SEEK_CUR) != 0) {
+				free(rows);
+				fclose(fp);
+				set_err(err, err_len, "seek past extra/comment failed");
+				return 1;
+			}
+		}
+		if (n >= cap) {
+			size_t ncap = cap * 2;
+			ah_zip_member *nr = (ah_zip_member *)realloc(rows, ncap * sizeof(ah_zip_member));
+			if (!nr) {
+				free(rows);
+				fclose(fp);
+				set_err(err, err_len, "out of memory");
+				return 1;
+			}
+			rows = nr;
+			cap = ncap;
+		}
+		memset(&rows[n], 0, sizeof(rows[n]));
+		snprintf(rows[n].path, sizeof(rows[n].path), "%s", namebuf);
+		rows[n].uncompressed_size = ch.uncomp_size;
+		rows[n].compressed_size = ch.comp_size;
+		classify_member_kind(namebuf, strlen(namebuf), rows[n].kind, sizeof(rows[n].kind));
+		n++;
+	}
+	fclose(fp);
+	*out = rows;
+	*count = n;
+	return 0;
+}
+
+static int list_single_file_member(const char *path, ah_zip_member **out, size_t *count, char *err, size_t err_len) {
+	struct stat st;
+	if (stat(path, &st) != 0) {
+		set_err(err, err_len, "stat failed");
+		return 1;
+	}
+	ah_zip_member *rows = (ah_zip_member *)calloc(1, sizeof(ah_zip_member));
+	if (!rows) {
+		set_err(err, err_len, "out of memory");
+		return 1;
+	}
+	snprintf(rows[0].path, sizeof(rows[0].path), "%s", path);
+	rows[0].uncompressed_size = (uint64_t)st.st_size;
+	rows[0].compressed_size = (uint64_t)st.st_size;
+	classify_member_kind(path, strlen(path), rows[0].kind, sizeof(rows[0].kind));
+	*out = rows;
+	*count = 1;
+	return 0;
+}
+
+int ah_zip_list_members(const char *path, ah_zip_member **out, size_t *count, char *err, size_t err_len) {
+	if (out)
+		*out = NULL;
+	if (count)
+		*count = 0;
+	if (!path || !*path || !out || !count) {
+		set_err(err, err_len, "invalid args");
+		return 1;
+	}
+	if (ends_with_ci(path, ".zip")) {
+		return list_zip_members(path, out, count, err, err_len);
+	}
+	if (path_is_dir(path)) {
+		/* Minimal dir inventory: export.xml if present. */
+		char buf[4096];
+		snprintf(buf, sizeof(buf), "%s/export.xml", path);
+		struct stat st;
+		if (stat(buf, &st) == 0) {
+			return list_single_file_member(buf, out, count, err, err_len);
+		}
+		snprintf(buf, sizeof(buf), "%s/apple_health_export/export.xml", path);
+		if (stat(buf, &st) == 0) {
+			return list_single_file_member(buf, out, count, err, err_len);
+		}
+		set_err(err, err_len, "directory has no export.xml");
+		return 1;
+	}
+	return list_single_file_member(path, out, count, err, err_len);
+}

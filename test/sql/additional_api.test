@@ -1,0 +1,44 @@
+# name: test/sql/additional_api.test
+# description: P1/P2 workout children, export info, me, inventory, record filters
+# group: [healthkit_export]
+
+require healthkit_export
+
+query II
+SELECT event_type_short, workout_activity_type_short
+FROM healthkit_workout_events('test/data/export.xml');
+----
+Pause	Running
+
+query III
+SELECT stat_type_short, sum, unit
+FROM healthkit_workout_statistics('test/data/export.xml')
+ORDER BY stat_type_short;
+----
+ActiveEnergyBurned	280.0	kcal
+DistanceWalkingRunning	4.2	km
+
+query I
+SELECT date_of_birth FROM healthkit_me('test/data/export.xml');
+----
+1990-01-15
+
+query I
+SELECT count(*) FROM healthkit_export_info('test/data/export.xml');
+----
+1
+
+query I
+SELECT count(*) FROM healthkit_zip_inventory('test/data/export.zip') WHERE kind = 'export_xml';
+----
+1
+
+query I
+SELECT count(*) FROM read_healthkit_export('test/data/export.xml', types := 'HeartRate');
+----
+2
+
+query I
+SELECT count(*) FROM read_healthkit_export('test/data/export.xml', types := 'StepCount,SleepAnalysis');
+----
+2

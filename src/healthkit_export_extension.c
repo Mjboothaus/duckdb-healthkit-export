@@ -11,5 +11,10 @@ DUCKDB_EXTENSION_ENTRYPOINT(duckdb_connection connection, duckdb_extension_info 
 	RegisterHealthkitActivitySummariesFunction(connection);
 	RegisterHealthkitWorkoutRoutesFunction(connection);
 	RegisterHealthkitWorkoutRoutePointsFunction(connection);
+	RegisterHealthkitWorkoutEventsFunction(connection);
+	RegisterHealthkitWorkoutStatisticsFunction(connection);
+	RegisterHealthkitExportInfoFunction(connection);
+	RegisterHealthkitMeFunction(connection);
+	RegisterHealthkitZipInventoryFunction(connection);
 	return true;
 }

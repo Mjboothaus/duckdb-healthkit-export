@@ -7,3 +7,8 @@ void RegisterHealthkitWorkoutsFunction(duckdb_connection connection);
 void RegisterHealthkitActivitySummariesFunction(duckdb_connection connection);
 void RegisterHealthkitWorkoutRoutesFunction(duckdb_connection connection);
 void RegisterHealthkitWorkoutRoutePointsFunction(duckdb_connection connection);
+void RegisterHealthkitWorkoutEventsFunction(duckdb_connection connection);
+void RegisterHealthkitWorkoutStatisticsFunction(duckdb_connection connection);
+void RegisterHealthkitExportInfoFunction(duckdb_connection connection);
+void RegisterHealthkitMeFunction(duckdb_connection connection);
+void RegisterHealthkitZipInventoryFunction(duckdb_connection connection);

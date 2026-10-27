@@ -89,11 +89,62 @@ typedef struct {
 	char gpx_path[AH_ATTR_MAX];
 } ah_workout_route;
 
+/* Nested under <Workout>. */
+typedef struct {
+	char event_type[AH_TYPE_MAX];
+	char event_type_short[AH_TYPE_MAX];
+	char event_date[64];
+	bool has_duration;
+	double duration;
+	char duration_unit[32];
+	char workout_activity_type[AH_TYPE_MAX];
+	char workout_activity_type_short[AH_TYPE_MAX];
+	char workout_start_date[64];
+	char workout_end_date[64];
+	char workout_source_name[AH_ATTR_MAX];
+} ah_workout_event;
+
+typedef struct {
+	char stat_type[AH_TYPE_MAX];
+	char stat_type_short[AH_TYPE_MAX];
+	char start_date[64];
+	char end_date[64];
+	char unit[64];
+	bool has_sum;
+	double sum;
+	bool has_minimum;
+	double minimum;
+	bool has_maximum;
+	double maximum;
+	bool has_average;
+	double average;
+	char workout_activity_type[AH_TYPE_MAX];
+	char workout_activity_type_short[AH_TYPE_MAX];
+	char workout_start_date[64];
+	char workout_end_date[64];
+	char workout_source_name[AH_ATTR_MAX];
+} ah_workout_statistic;
+
+typedef struct {
+	char export_date[64];
+} ah_export_info;
+
+typedef struct {
+	char date_of_birth[64];
+	char biological_sex[AH_ATTR_MAX];
+	char blood_type[AH_ATTR_MAX];
+	char fitzpatrick_skin_type[AH_ATTR_MAX];
+} ah_me;
+
 typedef struct {
 	void (*on_record)(const ah_record *row, void *userdata);
 	void (*on_workout)(const ah_workout *row, void *userdata);
 	void (*on_activity_summary)(const ah_activity_summary *row, void *userdata);
 	void (*on_workout_route)(const ah_workout_route *row, void *userdata);
+	void (*on_workout_event)(const ah_workout_event *row, void *userdata);
+	void (*on_workout_statistic)(const ah_workout_statistic *row, void *userdata);
+	void (*on_export_info)(const ah_export_info *row, void *userdata);
+	void (*on_me)(const ah_me *row, void *userdata);
 	void *userdata;
 } ah_parse_callbacks;
 
@@ -102,6 +153,8 @@ typedef struct {
 	size_t workouts;
 	size_t activity_summaries;
 	size_t workout_routes;
+	size_t workout_events;
+	size_t workout_statistics;
 	size_t skipped_nested_records;
 } ah_parse_stats;
 

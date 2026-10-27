@@ -17,6 +17,7 @@ void ah_type_short(const char *type_id, char *out, size_t out_len) {
 	    "HKCategoryTypeIdentifier",
 	    "HKCorrelationTypeIdentifier",
 	    "HKWorkoutActivityType",
+	    "HKWorkoutEventType",
 	    "HKDataType",
 	    NULL,
 	};
@@ -301,6 +302,104 @@ static void fill_route_from_attrs(ah_workout_route *row, const ah_attr_map *m, c
 	row->gpx_path[0] = '\0';
 }
 
+static void fill_workout_parent_fields(char *activity_type, size_t activity_type_len, char *activity_type_short,
+                                       size_t activity_type_short_len, char *start_date, size_t start_len,
+                                       char *end_date, size_t end_len, char *source_name, size_t source_len,
+                                       const ah_workout *parent, int has_parent) {
+	if (has_parent && parent) {
+		copy_attr(activity_type, activity_type_len, parent->activity_type);
+		copy_attr(activity_type_short, activity_type_short_len, parent->activity_type_short);
+		copy_attr(start_date, start_len, parent->start_date);
+		copy_attr(end_date, end_len, parent->end_date);
+		copy_attr(source_name, source_len, parent->source_name);
+	} else {
+		if (activity_type && activity_type_len)
+			activity_type[0] = '\0';
+		if (activity_type_short && activity_type_short_len)
+			activity_type_short[0] = '\0';
+		if (start_date && start_len)
+			start_date[0] = '\0';
+		if (end_date && end_len)
+			end_date[0] = '\0';
+		if (source_name && source_len)
+			source_name[0] = '\0';
+	}
+}
+
+static void fill_workout_event_from_attrs(ah_workout_event *row, const ah_attr_map *m, const ah_workout *parent,
+                                          int has_parent) {
+	memset(row, 0, sizeof(*row));
+	const char *etype = attr_get(m, "type");
+	copy_attr(row->event_type, sizeof(row->event_type), etype ? etype : "");
+	ah_type_short(row->event_type, row->event_type_short, sizeof(row->event_type_short));
+	copy_attr(row->event_date, sizeof(row->event_date), attr_get(m, "date") ? attr_get(m, "date") : "");
+	const char *v;
+	if ((v = attr_get(m, "duration")) && ah_parse_double(v, &row->duration)) {
+		row->has_duration = true;
+	}
+	copy_attr(row->duration_unit, sizeof(row->duration_unit),
+	          attr_get(m, "durationUnit") ? attr_get(m, "durationUnit") : "");
+	fill_workout_parent_fields(row->workout_activity_type, sizeof(row->workout_activity_type),
+	                           row->workout_activity_type_short, sizeof(row->workout_activity_type_short),
+	                           row->workout_start_date, sizeof(row->workout_start_date), row->workout_end_date,
+	                           sizeof(row->workout_end_date), row->workout_source_name, sizeof(row->workout_source_name),
+	                           parent, has_parent);
+}
+
+static void fill_workout_statistic_from_attrs(ah_workout_statistic *row, const ah_attr_map *m, const ah_workout *parent,
+                                              int has_parent) {
+	memset(row, 0, sizeof(*row));
+	const char *stype = attr_get(m, "type");
+	copy_attr(row->stat_type, sizeof(row->stat_type), stype ? stype : "");
+	ah_type_short(row->stat_type, row->stat_type_short, sizeof(row->stat_type_short));
+	copy_attr(row->start_date, sizeof(row->start_date), attr_get(m, "startDate") ? attr_get(m, "startDate") : "");
+	copy_attr(row->end_date, sizeof(row->end_date), attr_get(m, "endDate") ? attr_get(m, "endDate") : "");
+	copy_attr(row->unit, sizeof(row->unit), attr_get(m, "unit") ? attr_get(m, "unit") : "");
+	const char *v;
+	if ((v = attr_get(m, "sum")) && ah_parse_double(v, &row->sum)) {
+		row->has_sum = true;
+	}
+	if ((v = attr_get(m, "minimum")) && ah_parse_double(v, &row->minimum)) {
+		row->has_minimum = true;
+	}
+	if ((v = attr_get(m, "maximum")) && ah_parse_double(v, &row->maximum)) {
+		row->has_maximum = true;
+	}
+	if ((v = attr_get(m, "average")) && ah_parse_double(v, &row->average)) {
+		row->has_average = true;
+	}
+	fill_workout_parent_fields(row->workout_activity_type, sizeof(row->workout_activity_type),
+	                           row->workout_activity_type_short, sizeof(row->workout_activity_type_short),
+	                           row->workout_start_date, sizeof(row->workout_start_date), row->workout_end_date,
+	                           sizeof(row->workout_end_date), row->workout_source_name, sizeof(row->workout_source_name),
+	                           parent, has_parent);
+}
+
+static void fill_export_info_from_attrs(ah_export_info *row, const ah_attr_map *m) {
+	memset(row, 0, sizeof(*row));
+	copy_attr(row->export_date, sizeof(row->export_date), attr_get(m, "value") ? attr_get(m, "value") : "");
+}
+
+static void fill_me_from_attrs(ah_me *row, const ah_attr_map *m) {
+	memset(row, 0, sizeof(*row));
+	copy_attr(row->date_of_birth, sizeof(row->date_of_birth),
+	          attr_get(m, "HKCharacteristicTypeIdentifierDateOfBirth")
+	              ? attr_get(m, "HKCharacteristicTypeIdentifierDateOfBirth")
+	              : "");
+	copy_attr(row->biological_sex, sizeof(row->biological_sex),
+	          attr_get(m, "HKCharacteristicTypeIdentifierBiologicalSex")
+	              ? attr_get(m, "HKCharacteristicTypeIdentifierBiologicalSex")
+	              : "");
+	copy_attr(row->blood_type, sizeof(row->blood_type),
+	          attr_get(m, "HKCharacteristicTypeIdentifierBloodType")
+	              ? attr_get(m, "HKCharacteristicTypeIdentifierBloodType")
+	              : "");
+	copy_attr(row->fitzpatrick_skin_type, sizeof(row->fitzpatrick_skin_type),
+	          attr_get(m, "HKCharacteristicTypeIdentifierFitzpatrickSkinType")
+	              ? attr_get(m, "HKCharacteristicTypeIdentifierFitzpatrickSkinType")
+	              : "");
+}
+
 /* ---------------------------------------------------------------------------
  * Streaming tag scanner (no DOM, no external XML lib)
  *
@@ -469,7 +568,41 @@ static void handle_start_tag(ah_parser *P, const char *name, const ah_attr_map *
 		P->stats.records++;
 		return;
 	}
-	/* ClinicalRecord, WorkoutEvent, Me, ExportDate, HealthData, etc. ignored */
+	if (strcmp(name, "WorkoutEvent") == 0) {
+		if (P->cb && P->cb->on_workout_event) {
+			ah_workout_event row;
+			fill_workout_event_from_attrs(&row, attrs, &P->current_workout, P->has_current_workout);
+			P->cb->on_workout_event(&row, P->cb->userdata);
+		}
+		P->stats.workout_events++;
+		return;
+	}
+	if (strcmp(name, "WorkoutStatistics") == 0) {
+		if (P->cb && P->cb->on_workout_statistic) {
+			ah_workout_statistic row;
+			fill_workout_statistic_from_attrs(&row, attrs, &P->current_workout, P->has_current_workout);
+			P->cb->on_workout_statistic(&row, P->cb->userdata);
+		}
+		P->stats.workout_statistics++;
+		return;
+	}
+	if (strcmp(name, "ExportDate") == 0) {
+		if (P->cb && P->cb->on_export_info) {
+			ah_export_info row;
+			fill_export_info_from_attrs(&row, attrs);
+			P->cb->on_export_info(&row, P->cb->userdata);
+		}
+		return;
+	}
+	if (strcmp(name, "Me") == 0) {
+		if (P->cb && P->cb->on_me) {
+			ah_me row;
+			fill_me_from_attrs(&row, attrs);
+			P->cb->on_me(&row, P->cb->userdata);
+		}
+		return;
+	}
+	/* ClinicalRecord, HealthData, MetadataEntry, etc. still ignored */
 }
 
 static void handle_end_tag(ah_parser *P, const char *name) {
