@@ -188,6 +188,17 @@ def build_xml() -> str:
     for rec in RECORDS + BP_RECORDS:
         lines.append(_record_xml(rec))
 
+    # Open Record + MetadataEntry for healthkit_metadata coverage.
+    lines.append(
+        '  <Record type="HKQuantityTypeIdentifierHeight" unit="cm" value="180" '
+        'sourceName="Demo Phone" sourceVersion="18.0" '
+        'creationDate="2026-01-10 09:00:00 +1100" '
+        'startDate="2026-01-10 09:00:00 +1100" '
+        'endDate="2026-01-10 09:00:00 +1100">'
+    )
+    lines.append('    <MetadataEntry key="HKWasUserEntered" value="1"/>')
+    lines.append("  </Record>")
+
     lines.append(
         '  <Correlation type="HKCorrelationTypeIdentifierBloodPressure" '
         'sourceName="Demo Phone" sourceVersion="18.0" '
@@ -275,7 +286,17 @@ def write_golden_records(path: Path) -> None:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         # Top-level records only (BP appears once, not via Correlation children).
-        for rec in RECORDS + BP_RECORDS:
+        height = {
+            "type": "HKQuantityTypeIdentifierHeight",
+            "unit": "cm",
+            "value": "180",
+            "sourceName": "Demo Phone",
+            "sourceVersion": "18.0",
+            "creationDate": "2026-01-10 09:00:00 +1100",
+            "startDate": "2026-01-10 09:00:00 +1100",
+            "endDate": "2026-01-10 09:00:00 +1100",
+        }
+        for rec in RECORDS + BP_RECORDS + [height]:
             raw = rec["value"] or ""
             numeric = _is_float(raw)
             writer.writerow(
@@ -318,7 +339,7 @@ def main() -> None:
     print(f"wrote {xml_path.relative_to(ROOT)}")
     print(f"wrote {zip_path.relative_to(ROOT)}")
     print(f"wrote { (GOLDEN / 'records.csv').relative_to(ROOT) }")
-    print(f"records (top-level): {len(RECORDS) + len(BP_RECORDS)}")
+    print(f"records (top-level): {len(RECORDS) + len(BP_RECORDS) + 1}")  # + Height
     print(f"workouts: {len(WORKOUTS)}")
     print("workout routes: 1")
     print("workout events: 1")

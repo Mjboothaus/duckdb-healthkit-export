@@ -76,6 +76,7 @@ Versioning: early **0.x** beta tags; breaking changes allowed until 1.0.
 ### Added
 - `healthkit_workout_events(path)` and `healthkit_workout_statistics(path)` (workout children).
 - `healthkit_export_info(path)`, `healthkit_me(path)`, `healthkit_zip_inventory(path)`.
+- `healthkit_correlations(path)`, `healthkit_correlation_members(path)`, `healthkit_metadata(path)`.
 - Named filters on `read_healthkit_export`: `types`, `start`, `end` (VARCHAR).
 - Design note: [docs/ADDITIONAL_API_PLAN.md](docs/ADDITIONAL_API_PLAN.md).
 

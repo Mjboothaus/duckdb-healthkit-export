@@ -12,6 +12,9 @@
   <Record type="HKQuantityTypeIdentifierActiveEnergyBurned" unit="kcal" value="42.5" sourceName="Café Run Club" sourceVersion="3.2" creationDate="2026-01-15 07:30:00 +1100" startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100"/>
   <Record type="HKQuantityTypeIdentifierBloodPressureSystolic" unit="mmHg" value="118" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
   <Record type="HKQuantityTypeIdentifierBloodPressureDiastolic" unit="mmHg" value="76" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
+  <Record type="HKQuantityTypeIdentifierHeight" unit="cm" value="180" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-10 09:00:00 +1100" startDate="2026-01-10 09:00:00 +1100" endDate="2026-01-10 09:00:00 +1100">
+    <MetadataEntry key="HKWasUserEntered" value="1"/>
+  </Record>
   <Correlation type="HKCorrelationTypeIdentifierBloodPressure" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100">
     <Record type="HKQuantityTypeIdentifierBloodPressureSystolic" unit="mmHg" value="118" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
     <Record type="HKQuantityTypeIdentifierBloodPressureDiastolic" unit="mmHg" value="76" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>

@@ -169,6 +169,14 @@ Nested under `<Workout>`: pause/resume markers and per-workout quantity stats. S
 
 Export date + path, `<Me>` characteristics (sensitive), and zip member catalogue (`kind`: `export_xml` / `gpx` / `ecg_csv` / `cda` / …).
 
+### `healthkit_correlations(path)` / `healthkit_correlation_members(path)` — **implemented**
+
+Correlation parents (e.g. blood pressure) and nested member records. Top-level `read_healthkit_export` still skips nested Correlation children (no double-count).
+
+### `healthkit_metadata(path)` — **implemented**
+
+`<MetadataEntry key/value>` with soft parent keys (`parent_kind`: `record` / `workout` / `correlation`).
+
 ### Record filters (named parameters)
 
 ```sql

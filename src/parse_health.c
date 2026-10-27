@@ -380,6 +380,23 @@ static void fill_export_info_from_attrs(ah_export_info *row, const ah_attr_map *
 	copy_attr(row->export_date, sizeof(row->export_date), attr_get(m, "value") ? attr_get(m, "value") : "");
 }
 
+/* Forward decl — fill_metadata needs parser parent snapshots. */
+typedef struct ah_parser ah_parser;
+
+static void fill_correlation_from_attrs(ah_correlation *row, const ah_attr_map *m) {
+	memset(row, 0, sizeof(*row));
+	const char *type = attr_get(m, "type");
+	copy_attr(row->type, sizeof(row->type), type ? type : "");
+	ah_type_short(row->type, row->type_short, sizeof(row->type_short));
+	copy_attr(row->start_date, sizeof(row->start_date), attr_get(m, "startDate") ? attr_get(m, "startDate") : "");
+	copy_attr(row->end_date, sizeof(row->end_date), attr_get(m, "endDate") ? attr_get(m, "endDate") : "");
+	copy_attr(row->creation_date, sizeof(row->creation_date),
+	          attr_get(m, "creationDate") ? attr_get(m, "creationDate") : "");
+	copy_attr(row->source_name, sizeof(row->source_name), attr_get(m, "sourceName") ? attr_get(m, "sourceName") : "");
+	copy_attr(row->source_version, sizeof(row->source_version),
+	          attr_get(m, "sourceVersion") ? attr_get(m, "sourceVersion") : "");
+}
+
 static void fill_me_from_attrs(ah_me *row, const ah_attr_map *m) {
 	memset(row, 0, sizeof(*row));
 	copy_attr(row->date_of_birth, sizeof(row->date_of_birth),
@@ -408,18 +425,53 @@ static void fill_me_from_attrs(ah_me *row, const ah_attr_map *m) {
  * Correlation nesting so nested <Record>s are skipped.
  * -------------------------------------------------------------------------*/
 
-typedef struct {
+struct ah_parser {
 	const ah_parse_callbacks *cb;
 	ah_parse_stats stats;
 	int correlation_depth;
 	int workout_depth;
+	int record_depth;
 	/* Snapshot of current open Workout attrs for nested WorkoutRoute. */
 	ah_workout current_workout;
 	int has_current_workout;
 	/* Pending WorkoutRoute attrs until FileReference or end. */
 	ah_workout_route pending_route;
 	int has_pending_route;
-} ah_parser;
+	ah_correlation current_correlation;
+	int has_current_correlation;
+	ah_record current_record;
+	int has_current_record;
+};
+
+static void fill_metadata_from_attrs(ah_metadata_entry *row, const ah_attr_map *m, const ah_parser *P) {
+	memset(row, 0, sizeof(*row));
+	copy_attr(row->key, sizeof(row->key), attr_get(m, "key") ? attr_get(m, "key") : "");
+	copy_attr(row->value, sizeof(row->value), attr_get(m, "value") ? attr_get(m, "value") : "");
+	if (P->has_current_record) {
+		snprintf(row->parent_kind, sizeof(row->parent_kind), "record");
+		copy_attr(row->parent_type, sizeof(row->parent_type), P->current_record.type);
+		copy_attr(row->parent_type_short, sizeof(row->parent_type_short), P->current_record.type_short);
+		copy_attr(row->parent_start_date, sizeof(row->parent_start_date), P->current_record.start_date);
+		copy_attr(row->parent_end_date, sizeof(row->parent_end_date), P->current_record.end_date);
+		copy_attr(row->parent_source_name, sizeof(row->parent_source_name), P->current_record.source_name);
+	} else if (P->has_current_workout) {
+		snprintf(row->parent_kind, sizeof(row->parent_kind), "workout");
+		copy_attr(row->parent_type, sizeof(row->parent_type), P->current_workout.activity_type);
+		copy_attr(row->parent_type_short, sizeof(row->parent_type_short), P->current_workout.activity_type_short);
+		copy_attr(row->parent_start_date, sizeof(row->parent_start_date), P->current_workout.start_date);
+		copy_attr(row->parent_end_date, sizeof(row->parent_end_date), P->current_workout.end_date);
+		copy_attr(row->parent_source_name, sizeof(row->parent_source_name), P->current_workout.source_name);
+	} else if (P->has_current_correlation) {
+		snprintf(row->parent_kind, sizeof(row->parent_kind), "correlation");
+		copy_attr(row->parent_type, sizeof(row->parent_type), P->current_correlation.type);
+		copy_attr(row->parent_type_short, sizeof(row->parent_type_short), P->current_correlation.type_short);
+		copy_attr(row->parent_start_date, sizeof(row->parent_start_date), P->current_correlation.start_date);
+		copy_attr(row->parent_end_date, sizeof(row->parent_end_date), P->current_correlation.end_date);
+		copy_attr(row->parent_source_name, sizeof(row->parent_source_name), P->current_correlation.source_name);
+	} else {
+		snprintf(row->parent_kind, sizeof(row->parent_kind), "unknown");
+	}
+}
 
 static void emit_pending_route(ah_parser *P) {
 	if (!P->has_pending_route) {
@@ -506,6 +558,19 @@ static void parse_attributes(const char *p, const char *end, ah_attr_map *map) {
 static void handle_start_tag(ah_parser *P, const char *name, const ah_attr_map *attrs, int self_closing) {
 	if (strcmp(name, "Correlation") == 0) {
 		P->correlation_depth++;
+		ah_correlation row;
+		fill_correlation_from_attrs(&row, attrs);
+		P->current_correlation = row;
+		P->has_current_correlation = 1;
+		if (P->cb && P->cb->on_correlation) {
+			P->cb->on_correlation(&row, P->cb->userdata);
+		}
+		P->stats.correlations++;
+		if (self_closing) {
+			P->correlation_depth--;
+			P->has_current_correlation = 0;
+			memset(&P->current_correlation, 0, sizeof(P->current_correlation));
+		}
 		return;
 	}
 	if (strcmp(name, "Workout") == 0) {
@@ -556,16 +621,60 @@ static void handle_start_tag(ah_parser *P, const char *name, const ah_attr_map *
 		return;
 	}
 	if (strcmp(name, "Record") == 0) {
+		ah_record row;
+		fill_record_from_attrs(&row, attrs);
 		if (P->correlation_depth > 0) {
 			P->stats.skipped_nested_records++;
+			if (P->cb && P->cb->on_correlation_member) {
+				ah_correlation_member mem;
+				memset(&mem, 0, sizeof(mem));
+				if (P->has_current_correlation) {
+					copy_attr(mem.correlation_type, sizeof(mem.correlation_type), P->current_correlation.type);
+					copy_attr(mem.correlation_type_short, sizeof(mem.correlation_type_short),
+					          P->current_correlation.type_short);
+					copy_attr(mem.correlation_start_date, sizeof(mem.correlation_start_date),
+					          P->current_correlation.start_date);
+					copy_attr(mem.correlation_end_date, sizeof(mem.correlation_end_date),
+					          P->current_correlation.end_date);
+					copy_attr(mem.correlation_source_name, sizeof(mem.correlation_source_name),
+					          P->current_correlation.source_name);
+				}
+				mem.member = row;
+				P->cb->on_correlation_member(&mem, P->cb->userdata);
+			}
+			P->stats.correlation_members++;
+			/* Nested records rarely carry MetadataEntry; still track if open. */
+			P->current_record = row;
+			P->has_current_record = 1;
+			P->record_depth++;
+			if (self_closing) {
+				P->record_depth--;
+				P->has_current_record = 0;
+				memset(&P->current_record, 0, sizeof(P->current_record));
+			}
 			return;
 		}
 		if (P->cb && P->cb->on_record) {
-			ah_record row;
-			fill_record_from_attrs(&row, attrs);
 			P->cb->on_record(&row, P->cb->userdata);
 		}
 		P->stats.records++;
+		P->current_record = row;
+		P->has_current_record = 1;
+		P->record_depth++;
+		if (self_closing) {
+			P->record_depth--;
+			P->has_current_record = 0;
+			memset(&P->current_record, 0, sizeof(P->current_record));
+		}
+		return;
+	}
+	if (strcmp(name, "MetadataEntry") == 0) {
+		if (P->cb && P->cb->on_metadata_entry) {
+			ah_metadata_entry row;
+			fill_metadata_from_attrs(&row, attrs, P);
+			P->cb->on_metadata_entry(&row, P->cb->userdata);
+		}
+		P->stats.metadata_entries++;
 		return;
 	}
 	if (strcmp(name, "WorkoutEvent") == 0) {
@@ -602,12 +711,22 @@ static void handle_start_tag(ah_parser *P, const char *name, const ah_attr_map *
 		}
 		return;
 	}
-	/* ClinicalRecord, HealthData, MetadataEntry, etc. still ignored */
+	/* ClinicalRecord, HealthData, etc. still ignored */
 }
 
 static void handle_end_tag(ah_parser *P, const char *name) {
 	if (strcmp(name, "Correlation") == 0 && P->correlation_depth > 0) {
 		P->correlation_depth--;
+		if (P->correlation_depth == 0) {
+			P->has_current_correlation = 0;
+			memset(&P->current_correlation, 0, sizeof(P->current_correlation));
+		}
+	} else if (strcmp(name, "Record") == 0 && P->record_depth > 0) {
+		P->record_depth--;
+		if (P->record_depth == 0) {
+			P->has_current_record = 0;
+			memset(&P->current_record, 0, sizeof(P->current_record));
+		}
 	} else if (strcmp(name, "WorkoutRoute") == 0) {
 		/* Route without FileReference still emits (empty gpx_path). */
 		emit_pending_route(P);

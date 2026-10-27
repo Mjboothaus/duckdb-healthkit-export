@@ -16,5 +16,8 @@ DUCKDB_EXTENSION_ENTRYPOINT(duckdb_connection connection, duckdb_extension_info 
 	RegisterHealthkitExportInfoFunction(connection);
 	RegisterHealthkitMeFunction(connection);
 	RegisterHealthkitZipInventoryFunction(connection);
+	RegisterHealthkitCorrelationsFunction(connection);
+	RegisterHealthkitCorrelationMembersFunction(connection);
+	RegisterHealthkitMetadataFunction(connection);
 	return true;
 }

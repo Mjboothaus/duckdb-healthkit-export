@@ -818,3 +818,398 @@ void RegisterHealthkitZipInventoryFunction(duckdb_connection connection) {
 	duckdb_register_table_function(connection, function);
 	duckdb_destroy_table_function(&function);
 }
+
+/* -------------------------------------------------------------------------- */
+/* healthkit_correlations                                                     */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+	ah_correlation *rows;
+	size_t count;
+	size_t capacity;
+	char *path;
+	char *filename;
+} corr_bind_data;
+
+static void DestroyCorrBind(void *ptr) {
+	corr_bind_data *b = (corr_bind_data *)ptr;
+	if (!b) return;
+	free(b->rows);
+	free(b->path);
+	free(b->filename);
+	duckdb_free(b);
+}
+
+static void OnCorrelationCollect(const ah_correlation *row, void *userdata) {
+	corr_bind_data *b = (corr_bind_data *)userdata;
+	if (b->count >= b->capacity) {
+		size_t ncap = b->capacity ? b->capacity * 2 : 8;
+		ah_correlation *nr = (ah_correlation *)realloc(b->rows, ncap * sizeof(ah_correlation));
+		if (!nr) return;
+		b->rows = nr;
+		b->capacity = ncap;
+	}
+	b->rows[b->count++] = *row;
+}
+
+static void CorrBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_logical_type ts_type = duckdb_create_logical_type(DUCKDB_TYPE_TIMESTAMP_TZ);
+	duckdb_bind_add_result_column(info, "type", varchar_type);
+	duckdb_bind_add_result_column(info, "type_short", varchar_type);
+	duckdb_bind_add_result_column(info, "start_date", ts_type);
+	duckdb_bind_add_result_column(info, "end_date", ts_type);
+	duckdb_bind_add_result_column(info, "creation_date", ts_type);
+	duckdb_bind_add_result_column(info, "source_name", varchar_type);
+	duckdb_bind_add_result_column(info, "source_version", varchar_type);
+	duckdb_bind_add_result_column(info, "filename", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_destroy_logical_type(&ts_type);
+
+	char *path = BindPathOrError(info, "healthkit_correlations");
+	if (!path) return;
+	corr_bind_data *bind = (corr_bind_data *)duckdb_malloc(sizeof(corr_bind_data));
+	if (!bind) { free(path); duckdb_bind_set_error(info, "out of memory"); return; }
+	memset(bind, 0, sizeof(*bind));
+	bind->path = path;
+	char err[256]; err[0] = '\0';
+	ah_xml_source *src = ah_xml_source_open(bind->path, err, sizeof(err));
+	if (!src) {
+		char msg[320];
+		snprintf(msg, sizeof(msg), "healthkit_correlations: cannot open '%s': %s", bind->path, err[0] ? err : "error");
+		DestroyCorrBind(bind);
+		duckdb_bind_set_error(info, msg);
+		return;
+	}
+	bind->filename = strdup(ah_xml_source_filename(src));
+	ah_parse_callbacks cb = {
+	    .on_record = OnRecordIgnore,
+	    .on_workout = OnWorkoutIgnore,
+	    .on_activity_summary = OnSummaryIgnore,
+	    .on_workout_route = OnRouteIgnore,
+	    .on_correlation = OnCorrelationCollect,
+	    .userdata = bind,
+	};
+	ah_parse_stats stats; memset(&stats, 0, sizeof(stats));
+	int rc = ah_parse_xml_filep(ah_xml_source_file(src), &cb, &stats);
+	ah_xml_source_close(src);
+	if (rc != 0) { DestroyCorrBind(bind); duckdb_bind_set_error(info, "healthkit_correlations: parse failed"); return; }
+	duckdb_bind_set_bind_data(info, bind, DestroyCorrBind);
+	duckdb_bind_set_cardinality(info, (idx_t)bind->count, true);
+}
+
+static void CorrFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	corr_bind_data *bind = (corr_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) { duckdb_data_chunk_set_size(output, 0); return; }
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+	duckdb_vector v0 = duckdb_data_chunk_get_vector(output, 0);
+	duckdb_vector v1 = duckdb_data_chunk_get_vector(output, 1);
+	duckdb_vector v2 = duckdb_data_chunk_get_vector(output, 2);
+	duckdb_vector v3 = duckdb_data_chunk_get_vector(output, 3);
+	duckdb_vector v4 = duckdb_data_chunk_get_vector(output, 4);
+	duckdb_vector v5 = duckdb_data_chunk_get_vector(output, 5);
+	duckdb_vector v6 = duckdb_data_chunk_get_vector(output, 6);
+	duckdb_vector v7 = duckdb_data_chunk_get_vector(output, 7);
+	duckdb_vector_ensure_validity_writable(v2);
+	duckdb_vector_ensure_validity_writable(v3);
+	duckdb_vector_ensure_validity_writable(v4);
+	uint64_t *s_v = duckdb_vector_get_validity(v2);
+	uint64_t *e_v = duckdb_vector_get_validity(v3);
+	uint64_t *c_v = duckdb_vector_get_validity(v4);
+	const char *filename = bind->filename ? bind->filename : "";
+	for (idx_t i = 0; i < n; i++) {
+		const ah_correlation *row = &bind->rows[init->offset + i];
+		AssignVarchar(v0, i, row->type);
+		AssignVarchar(v1, i, row->type_short);
+		AssignTimestamp(v2, s_v, i, row->start_date);
+		AssignTimestamp(v3, e_v, i, row->end_date);
+		AssignTimestamp(v4, c_v, i, row->creation_date);
+		AssignVarchar(v5, i, row->source_name);
+		AssignVarchar(v6, i, row->source_version);
+		AssignVarchar(v7, i, filename);
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitCorrelationsFunction(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_correlations");
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_table_function_add_parameter(function, varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_table_function_set_bind(function, CorrBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, CorrFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
+
+/* -------------------------------------------------------------------------- */
+/* healthkit_correlation_members                                              */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+	ah_correlation_member *rows;
+	size_t count;
+	size_t capacity;
+	char *path;
+	char *filename;
+} cmem_bind_data;
+
+static void DestroyCmemBind(void *ptr) {
+	cmem_bind_data *b = (cmem_bind_data *)ptr;
+	if (!b) return;
+	free(b->rows);
+	free(b->path);
+	free(b->filename);
+	duckdb_free(b);
+}
+
+static void OnCmemCollect(const ah_correlation_member *row, void *userdata) {
+	cmem_bind_data *b = (cmem_bind_data *)userdata;
+	if (b->count >= b->capacity) {
+		size_t ncap = b->capacity ? b->capacity * 2 : 8;
+		ah_correlation_member *nr = (ah_correlation_member *)realloc(b->rows, ncap * sizeof(ah_correlation_member));
+		if (!nr) return;
+		b->rows = nr;
+		b->capacity = ncap;
+	}
+	b->rows[b->count++] = *row;
+}
+
+static void CmemBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_logical_type double_type = duckdb_create_logical_type(DUCKDB_TYPE_DOUBLE);
+	duckdb_logical_type ts_type = duckdb_create_logical_type(DUCKDB_TYPE_TIMESTAMP_TZ);
+	duckdb_bind_add_result_column(info, "correlation_type", varchar_type);
+	duckdb_bind_add_result_column(info, "correlation_type_short", varchar_type);
+	duckdb_bind_add_result_column(info, "correlation_start_date", ts_type);
+	duckdb_bind_add_result_column(info, "correlation_end_date", ts_type);
+	duckdb_bind_add_result_column(info, "correlation_source_name", varchar_type);
+	duckdb_bind_add_result_column(info, "type", varchar_type);
+	duckdb_bind_add_result_column(info, "type_short", varchar_type);
+	duckdb_bind_add_result_column(info, "unit", varchar_type);
+	duckdb_bind_add_result_column(info, "value", double_type);
+	duckdb_bind_add_result_column(info, "value_text", varchar_type);
+	duckdb_bind_add_result_column(info, "start_date", ts_type);
+	duckdb_bind_add_result_column(info, "end_date", ts_type);
+	duckdb_bind_add_result_column(info, "source_name", varchar_type);
+	duckdb_bind_add_result_column(info, "filename", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_destroy_logical_type(&double_type);
+	duckdb_destroy_logical_type(&ts_type);
+
+	char *path = BindPathOrError(info, "healthkit_correlation_members");
+	if (!path) return;
+	cmem_bind_data *bind = (cmem_bind_data *)duckdb_malloc(sizeof(cmem_bind_data));
+	if (!bind) { free(path); duckdb_bind_set_error(info, "out of memory"); return; }
+	memset(bind, 0, sizeof(*bind));
+	bind->path = path;
+	char err[256]; err[0] = '\0';
+	ah_xml_source *src = ah_xml_source_open(bind->path, err, sizeof(err));
+	if (!src) {
+		char msg[320];
+		snprintf(msg, sizeof(msg), "healthkit_correlation_members: cannot open '%s': %s", bind->path, err[0] ? err : "error");
+		DestroyCmemBind(bind);
+		duckdb_bind_set_error(info, msg);
+		return;
+	}
+	bind->filename = strdup(ah_xml_source_filename(src));
+	ah_parse_callbacks cb = {
+	    .on_record = OnRecordIgnore,
+	    .on_workout = OnWorkoutIgnore,
+	    .on_activity_summary = OnSummaryIgnore,
+	    .on_workout_route = OnRouteIgnore,
+	    .on_correlation_member = OnCmemCollect,
+	    .userdata = bind,
+	};
+	ah_parse_stats stats; memset(&stats, 0, sizeof(stats));
+	int rc = ah_parse_xml_filep(ah_xml_source_file(src), &cb, &stats);
+	ah_xml_source_close(src);
+	if (rc != 0) { DestroyCmemBind(bind); duckdb_bind_set_error(info, "healthkit_correlation_members: parse failed"); return; }
+	duckdb_bind_set_bind_data(info, bind, DestroyCmemBind);
+	duckdb_bind_set_cardinality(info, (idx_t)bind->count, true);
+}
+
+static void CmemFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	cmem_bind_data *bind = (cmem_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) { duckdb_data_chunk_set_size(output, 0); return; }
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+	duckdb_vector cols[14];
+	for (int c = 0; c < 14; c++) cols[c] = duckdb_data_chunk_get_vector(output, (idx_t)c);
+	duckdb_vector_ensure_validity_writable(cols[2]);
+	duckdb_vector_ensure_validity_writable(cols[3]);
+	duckdb_vector_ensure_validity_writable(cols[8]);
+	duckdb_vector_ensure_validity_writable(cols[10]);
+	duckdb_vector_ensure_validity_writable(cols[11]);
+	uint64_t *cs_v = duckdb_vector_get_validity(cols[2]);
+	uint64_t *ce_v = duckdb_vector_get_validity(cols[3]);
+	uint64_t *val_v = duckdb_vector_get_validity(cols[8]);
+	uint64_t *ms_v = duckdb_vector_get_validity(cols[10]);
+	uint64_t *me_v = duckdb_vector_get_validity(cols[11]);
+	double *val_data = (double *)duckdb_vector_get_data(cols[8]);
+	const char *filename = bind->filename ? bind->filename : "";
+	for (idx_t i = 0; i < n; i++) {
+		const ah_correlation_member *row = &bind->rows[init->offset + i];
+		AssignVarchar(cols[0], i, row->correlation_type);
+		AssignVarchar(cols[1], i, row->correlation_type_short);
+		AssignTimestamp(cols[2], cs_v, i, row->correlation_start_date);
+		AssignTimestamp(cols[3], ce_v, i, row->correlation_end_date);
+		AssignVarchar(cols[4], i, row->correlation_source_name);
+		AssignVarchar(cols[5], i, row->member.type);
+		AssignVarchar(cols[6], i, row->member.type_short);
+		AssignVarchar(cols[7], i, row->member.unit);
+		if (row->member.has_value) val_data[i] = row->member.value;
+		else duckdb_validity_set_row_invalid(val_v, i);
+		AssignVarchar(cols[9], i, row->member.value_text);
+		AssignTimestamp(cols[10], ms_v, i, row->member.start_date);
+		AssignTimestamp(cols[11], me_v, i, row->member.end_date);
+		AssignVarchar(cols[12], i, row->member.source_name);
+		AssignVarchar(cols[13], i, filename);
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitCorrelationMembersFunction(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_correlation_members");
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_table_function_add_parameter(function, varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_table_function_set_bind(function, CmemBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, CmemFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
+
+/* -------------------------------------------------------------------------- */
+/* healthkit_metadata                                                         */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+	ah_metadata_entry *rows;
+	size_t count;
+	size_t capacity;
+	char *path;
+	char *filename;
+} meta_bind_data;
+
+static void DestroyMetaBind(void *ptr) {
+	meta_bind_data *b = (meta_bind_data *)ptr;
+	if (!b) return;
+	free(b->rows);
+	free(b->path);
+	free(b->filename);
+	duckdb_free(b);
+}
+
+static void OnMetaCollect(const ah_metadata_entry *row, void *userdata) {
+	meta_bind_data *b = (meta_bind_data *)userdata;
+	if (b->count >= b->capacity) {
+		size_t ncap = b->capacity ? b->capacity * 2 : 32;
+		ah_metadata_entry *nr = (ah_metadata_entry *)realloc(b->rows, ncap * sizeof(ah_metadata_entry));
+		if (!nr) return;
+		b->rows = nr;
+		b->capacity = ncap;
+	}
+	b->rows[b->count++] = *row;
+}
+
+static void MetaBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_logical_type ts_type = duckdb_create_logical_type(DUCKDB_TYPE_TIMESTAMP_TZ);
+	duckdb_bind_add_result_column(info, "parent_kind", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_type", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_type_short", varchar_type);
+	duckdb_bind_add_result_column(info, "parent_start_date", ts_type);
+	duckdb_bind_add_result_column(info, "parent_end_date", ts_type);
+	duckdb_bind_add_result_column(info, "parent_source_name", varchar_type);
+	duckdb_bind_add_result_column(info, "key", varchar_type);
+	duckdb_bind_add_result_column(info, "value", varchar_type);
+	duckdb_bind_add_result_column(info, "filename", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_destroy_logical_type(&ts_type);
+
+	char *path = BindPathOrError(info, "healthkit_metadata");
+	if (!path) return;
+	meta_bind_data *bind = (meta_bind_data *)duckdb_malloc(sizeof(meta_bind_data));
+	if (!bind) { free(path); duckdb_bind_set_error(info, "out of memory"); return; }
+	memset(bind, 0, sizeof(*bind));
+	bind->path = path;
+	char err[256]; err[0] = '\0';
+	ah_xml_source *src = ah_xml_source_open(bind->path, err, sizeof(err));
+	if (!src) {
+		char msg[320];
+		snprintf(msg, sizeof(msg), "healthkit_metadata: cannot open '%s': %s", bind->path, err[0] ? err : "error");
+		DestroyMetaBind(bind);
+		duckdb_bind_set_error(info, msg);
+		return;
+	}
+	bind->filename = strdup(ah_xml_source_filename(src));
+	ah_parse_callbacks cb = {
+	    .on_record = OnRecordIgnore,
+	    .on_workout = OnWorkoutIgnore,
+	    .on_activity_summary = OnSummaryIgnore,
+	    .on_workout_route = OnRouteIgnore,
+	    .on_metadata_entry = OnMetaCollect,
+	    .userdata = bind,
+	};
+	ah_parse_stats stats; memset(&stats, 0, sizeof(stats));
+	int rc = ah_parse_xml_filep(ah_xml_source_file(src), &cb, &stats);
+	ah_xml_source_close(src);
+	if (rc != 0) { DestroyMetaBind(bind); duckdb_bind_set_error(info, "healthkit_metadata: parse failed"); return; }
+	duckdb_bind_set_bind_data(info, bind, DestroyMetaBind);
+	duckdb_bind_set_cardinality(info, (idx_t)bind->count, true);
+}
+
+static void MetaFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	meta_bind_data *bind = (meta_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) { duckdb_data_chunk_set_size(output, 0); return; }
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+	duckdb_vector cols[9];
+	for (int c = 0; c < 9; c++) cols[c] = duckdb_data_chunk_get_vector(output, (idx_t)c);
+	duckdb_vector_ensure_validity_writable(cols[3]);
+	duckdb_vector_ensure_validity_writable(cols[4]);
+	uint64_t *ps_v = duckdb_vector_get_validity(cols[3]);
+	uint64_t *pe_v = duckdb_vector_get_validity(cols[4]);
+	const char *filename = bind->filename ? bind->filename : "";
+	for (idx_t i = 0; i < n; i++) {
+		const ah_metadata_entry *row = &bind->rows[init->offset + i];
+		AssignVarchar(cols[0], i, row->parent_kind);
+		AssignVarchar(cols[1], i, row->parent_type);
+		AssignVarchar(cols[2], i, row->parent_type_short);
+		AssignTimestamp(cols[3], ps_v, i, row->parent_start_date);
+		AssignTimestamp(cols[4], pe_v, i, row->parent_end_date);
+		AssignVarchar(cols[5], i, row->parent_source_name);
+		AssignVarchar(cols[6], i, row->key);
+		AssignVarchar(cols[7], i, row->value);
+		AssignVarchar(cols[8], i, filename);
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitMetadataFunction(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_metadata");
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_table_function_add_parameter(function, varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+	duckdb_table_function_set_bind(function, MetaBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, MetaFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
