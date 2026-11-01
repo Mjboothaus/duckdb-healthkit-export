@@ -173,6 +173,18 @@ Export date + path, `<Me>` characteristics (sensitive), and zip member catalogue
 
 Correlation parents (e.g. blood pressure) and nested member records. Top-level `read_healthkit_export` still skips nested Correlation children (no double-count).
 
+### `healthkit_export_functions()` — **implemented** (issue #41)
+
+Zero-argument catalogue of every public table function: `function_name`, `parameters` (real names, not `col0`), `description`, `example`, `categories`.
+
+The extension uses DuckDB’s **stable C API**, which cannot attach `FunctionDescription` metadata. As a result `duckdb_functions()` shows empty descriptions and positional arguments as `col0`. Prefer this catalogue for agents and SQL clients:
+
+```sql
+SELECT function_name, parameters, description
+FROM healthkit_export_functions()
+ORDER BY 1;
+```
+
 ### `healthkit_metadata(path)` — **implemented**
 
 `<MetadataEntry key/value>` with soft parent keys (`parent_kind`: `record` / `workout` / `correlation`).

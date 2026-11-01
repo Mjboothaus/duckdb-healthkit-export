@@ -1,7 +1,7 @@
 # Additional API plan — more of `export.zip` in SQL
 
-Last updated: 2026-10-27.  
-Status: **P1–P4 implemented** on `feature/additional-api-p1-p2` (see README). **P5** still open.  
+Last updated: 2026-11-01.  
+Status: **P1–P4 implemented** on main (see README). **P5** and **streaming** remain on the roadmap only (not scheduled).  
 Related: [DESIGN.md](DESIGN.md) · [ERD.md](ERD.md) · [ROADMAP.md](ROADMAP.md) · [STREAMING_PLAN.md](STREAMING_PLAN.md) · [BRANDING.md](BRANDING.md) · [QUICKSTART.md](QUICKSTART.md)
 
 ---
@@ -34,8 +34,9 @@ This is complementary to [STREAMING_PLAN.md](STREAMING_PLAN.md): streaming impro
 | `healthkit_heartbeat_points(path)` | `<InstantaneousBeatsPerMinute>` under HRV | **Shipped** |
 | `healthkit_ecg_recordings(path)` | ECG CSV headers (no Name/DOB) | **Shipped** |
 | `healthkit_ecg_samples(path)` | ECG sample µV | **Shipped** |
+| `healthkit_export_functions()` | Extension catalogue (params/descriptions) | **Shipped** ([#41](https://github.com/Mjboothaus/duckdb-healthkit-export/issues/41)) |
 
-**Still skipped / P5:** nested Correlation children remain out of `read_healthkit_export` (by design); clinical/CDA/audiogram/vision TFs; `ignore_errors`; streaming execute.
+**Deferred (roadmap only):** P5 clinical/CDA/audiogram/vision TFs; `ignore_errors`; streaming execute. Nested Correlation children remain out of `read_healthkit_export` by design.
 
 ---
 

@@ -18,3 +18,4 @@ void RegisterHealthkitMetadataFunction(duckdb_connection connection);
 void RegisterHealthkitHeartbeatPointsFunction(duckdb_connection connection);
 void RegisterHealthkitEcgRecordingsFunction(duckdb_connection connection);
 void RegisterHealthkitEcgSamplesFunction(duckdb_connection connection);
+void RegisterHealthkitExportFunctionsCatalog(duckdb_connection connection);

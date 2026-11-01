@@ -93,3 +93,25 @@ query I
 SELECT count(*) FROM healthkit_ecg_recordings('test/data/export.zip') WHERE classification = 'Demo Subject';
 ----
 0
+
+# Issue #41: agent-facing catalogue (stable C API cannot set duckdb_functions descriptions)
+query I
+SELECT count(*) FROM healthkit_export_functions();
+----
+17
+
+query I
+SELECT count(*) FROM healthkit_export_functions()
+WHERE function_name = 'read_healthkit_export'
+  AND parameters LIKE '%path%'
+  AND description IS NOT NULL
+  AND length(description) > 0;
+----
+1
+
+query I
+SELECT count(*) FROM healthkit_export_functions()
+WHERE function_name = 'healthkit_export_functions'
+  AND categories LIKE '%catalog%';
+----
+1

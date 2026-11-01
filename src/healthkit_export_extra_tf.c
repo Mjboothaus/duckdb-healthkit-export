@@ -1553,3 +1553,187 @@ void RegisterHealthkitEcgSamplesFunction(duckdb_connection connection) {
 	duckdb_register_table_function(connection, function);
 	duckdb_destroy_table_function(&function);
 }
+
+/* -------------------------------------------------------------------------- */
+/* healthkit_export_functions — agent-friendly catalog (issue #41)            */
+/*                                                                            */
+/* The stable C extension API cannot attach FunctionDescription metadata, so  */
+/* duckdb_functions() shows empty descriptions and positional args as col0.   */
+/* This zero-argument table function is the discoverable catalogue instead.   */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+	const char *function_name;
+	const char *parameters;     /* human-readable signature, not col0 */
+	const char *description;
+	const char *example;
+	const char *categories;    /* comma-separated tags */
+} hk_fn_catalog_row;
+
+static const hk_fn_catalog_row HK_FN_CATALOG[] = {
+    {"read_healthkit_export",
+     "path VARCHAR, types VARCHAR := NULL, start VARCHAR := NULL, end VARCHAR := NULL",
+     "Scan top-level HealthKit Record elements from an export.zip, export directory, or export.xml. "
+     "Optional named filters: types (comma-separated type_short or full type), start/end (Apple-style dates).",
+     "SELECT type_short, count(*) FROM read_healthkit_export('export.zip', types := 'HeartRate,StepCount') "
+     "GROUP BY 1 ORDER BY 2 DESC;",
+     "healthkit,records"},
+    {"healthkit_workouts",
+     "path VARCHAR",
+     "Workout summary attributes from Workout elements (activity, duration, distance, energy, dates, source).",
+     "SELECT activity_type_short, start_date, duration FROM healthkit_workouts('export.zip') "
+     "ORDER BY start_date DESC LIMIT 20;",
+     "healthkit,workouts"},
+    {"healthkit_workout_events",
+     "path VARCHAR",
+     "WorkoutEvent children (pause/resume/marker) joined to parent workout keys.",
+     "SELECT event_type_short, event_date, workout_activity_type_short "
+     "FROM healthkit_workout_events('export.zip') LIMIT 20;",
+     "healthkit,workouts"},
+    {"healthkit_workout_statistics",
+     "path VARCHAR",
+     "WorkoutStatistics children (sum/min/max/average aggregates) joined to parent workout keys.",
+     "SELECT stat_type_short, unit, sum, average FROM healthkit_workout_statistics('export.zip') LIMIT 20;",
+     "healthkit,workouts"},
+    {"healthkit_activity_summaries",
+     "path VARCHAR",
+     "Daily ActivitySummary rings (move, exercise, stand) from export.xml.",
+     "SELECT date_components, active_energy_burned, apple_exercise_time "
+     "FROM healthkit_activity_summaries('export.zip') ORDER BY 1 DESC LIMIT 14;",
+     "healthkit,activity"},
+    {"healthkit_workout_routes",
+     "path VARCHAR",
+     "WorkoutRoute metadata and GPX file references (not track points).",
+     "SELECT workout_activity_type_short, gpx_path FROM healthkit_workout_routes('export.zip');",
+     "healthkit,routes"},
+    {"healthkit_workout_route_points",
+     "path VARCHAR",
+     "GPX track points for workout routes (lat/lon/ele/time and accuracy fields when present).",
+     "SELECT lat, lon, time FROM healthkit_workout_route_points('export.zip') LIMIT 100;",
+     "healthkit,routes,gpx"},
+    {"healthkit_export_info",
+     "path VARCHAR",
+     "One row of export catalogue metadata: ExportDate, source path/filename, whether a CDA member exists.",
+     "SELECT * FROM healthkit_export_info('export.zip');",
+     "healthkit,metadata"},
+    {"healthkit_me",
+     "path VARCHAR",
+     "Characteristics from the Me element (date of birth, sex, blood type, skin type). Sensitive PHI — use with care.",
+     "SELECT biological_sex, blood_type FROM healthkit_me('export.zip');",
+     "healthkit,metadata,sensitive"},
+    {"healthkit_zip_inventory",
+     "path VARCHAR",
+     "List zip (or directory) members with path, sizes, and kind classification (xml, gpx, ecg, cda, other).",
+     "SELECT kind, count(*) FROM healthkit_zip_inventory('export.zip') GROUP BY 1 ORDER BY 1;",
+     "healthkit,zip"},
+    {"healthkit_correlations",
+     "path VARCHAR",
+     "Correlation parent elements (e.g. blood pressure groups) without nested member records.",
+     "SELECT type_short, start_date, source_name FROM healthkit_correlations('export.zip');",
+     "healthkit,correlations"},
+    {"healthkit_correlation_members",
+     "path VARCHAR",
+     "Record children nested under Correlation elements, with parent correlation keys.",
+     "SELECT correlation_type_short, type_short, value, unit "
+     "FROM healthkit_correlation_members('export.zip') LIMIT 50;",
+     "healthkit,correlations"},
+    {"healthkit_metadata",
+     "path VARCHAR",
+     "MetadataEntry key/value pairs attached to records, workouts, and other parents.",
+     "SELECT parent_kind, key, count(*) FROM healthkit_metadata('export.zip') GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 30;",
+     "healthkit,metadata"},
+    {"healthkit_heartbeat_points",
+     "path VARCHAR",
+     "InstantaneousBeatsPerMinute points under HRV (and similar) records, with parent keys.",
+     "SELECT bpm, time_text, parent_type_short FROM healthkit_heartbeat_points('export.zip') LIMIT 100;",
+     "healthkit,hrv"},
+    {"healthkit_ecg_recordings",
+     "path VARCHAR, ecg_path VARCHAR := NULL",
+     "ECG sidecar CSV headers from electrocardiograms/ (Name and date of birth omitted). "
+     "Optional named ecg_path filters to one member.",
+     "SELECT ecg_path, classification, sample_rate_hz, n_samples "
+     "FROM healthkit_ecg_recordings('export.zip');",
+     "healthkit,ecg,sensitive"},
+    {"healthkit_ecg_samples",
+     "path VARCHAR, ecg_path VARCHAR := NULL",
+     "ECG sample values in microvolts from electrocardiograms/*.csv. Optional named ecg_path filter.",
+     "SELECT sample_index, value_uv FROM healthkit_ecg_samples('export.zip', "
+     "ecg_path := 'electrocardiograms/ecg_0.csv') LIMIT 100;",
+     "healthkit,ecg"},
+    {"healthkit_export_functions",
+     "",
+     "Catalogue of healthkit_export table functions with parameter names, descriptions, and examples. "
+     "Use this instead of duckdb_functions() for documentation: the stable C API cannot set "
+     "FunctionDescription, so duckdb_functions() shows empty descriptions and positional args as col0.",
+     "SELECT function_name, parameters, description FROM healthkit_export_functions() ORDER BY 1;",
+     "healthkit,catalog"},
+};
+
+static const size_t HK_FN_CATALOG_COUNT = sizeof(HK_FN_CATALOG) / sizeof(HK_FN_CATALOG[0]);
+
+typedef struct {
+	size_t count;
+} fncat_bind_data;
+
+static void DestroyFncatBind(void *ptr) {
+	duckdb_free(ptr);
+}
+
+static void FncatBind(duckdb_bind_info info) {
+	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
+	duckdb_bind_add_result_column(info, "function_name", varchar_type);
+	duckdb_bind_add_result_column(info, "parameters", varchar_type);
+	duckdb_bind_add_result_column(info, "description", varchar_type);
+	duckdb_bind_add_result_column(info, "example", varchar_type);
+	duckdb_bind_add_result_column(info, "categories", varchar_type);
+	duckdb_destroy_logical_type(&varchar_type);
+
+	fncat_bind_data *bind = (fncat_bind_data *)duckdb_malloc(sizeof(fncat_bind_data));
+	if (!bind) {
+		duckdb_bind_set_error(info, "out of memory");
+		return;
+	}
+	bind->count = HK_FN_CATALOG_COUNT;
+	duckdb_bind_set_bind_data(info, bind, DestroyFncatBind);
+	duckdb_bind_set_cardinality(info, (idx_t)HK_FN_CATALOG_COUNT, true);
+}
+
+static void FncatFunction(duckdb_function_info info, duckdb_data_chunk output) {
+	fncat_bind_data *bind = (fncat_bind_data *)duckdb_function_get_bind_data(info);
+	scan_init_data *init = (scan_init_data *)duckdb_function_get_init_data(info);
+	if (!bind || !init || init->offset >= bind->count) {
+		duckdb_data_chunk_set_size(output, 0);
+		return;
+	}
+	const idx_t vector_size = duckdb_vector_size();
+	size_t remaining = bind->count - init->offset;
+	idx_t n = remaining > (size_t)vector_size ? vector_size : (idx_t)remaining;
+
+	duckdb_vector v_name = duckdb_data_chunk_get_vector(output, 0);
+	duckdb_vector v_params = duckdb_data_chunk_get_vector(output, 1);
+	duckdb_vector v_desc = duckdb_data_chunk_get_vector(output, 2);
+	duckdb_vector v_ex = duckdb_data_chunk_get_vector(output, 3);
+	duckdb_vector v_cat = duckdb_data_chunk_get_vector(output, 4);
+
+	for (idx_t i = 0; i < n; i++) {
+		const hk_fn_catalog_row *row = &HK_FN_CATALOG[init->offset + i];
+		AssignVarchar(v_name, i, row->function_name);
+		AssignVarchar(v_params, i, row->parameters);
+		AssignVarchar(v_desc, i, row->description);
+		AssignVarchar(v_ex, i, row->example);
+		AssignVarchar(v_cat, i, row->categories);
+	}
+	init->offset += n;
+	duckdb_data_chunk_set_size(output, n);
+}
+
+void RegisterHealthkitExportFunctionsCatalog(duckdb_connection connection) {
+	duckdb_table_function function = duckdb_create_table_function();
+	duckdb_table_function_set_name(function, "healthkit_export_functions");
+	/* No parameters — catalogue of the extension itself. */
+	duckdb_table_function_set_bind(function, FncatBind);
+	duckdb_table_function_set_init(function, ScanInit);
+	duckdb_table_function_set_function(function, FncatFunction);
+	duckdb_register_table_function(connection, function);
+	duckdb_destroy_table_function(&function);
+}
