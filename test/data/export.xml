@@ -12,12 +12,24 @@
   <Record type="HKQuantityTypeIdentifierActiveEnergyBurned" unit="kcal" value="42.5" sourceName="Café Run Club" sourceVersion="3.2" creationDate="2026-01-15 07:30:00 +1100" startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100"/>
   <Record type="HKQuantityTypeIdentifierBloodPressureSystolic" unit="mmHg" value="118" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
   <Record type="HKQuantityTypeIdentifierBloodPressureDiastolic" unit="mmHg" value="76" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
+  <Record type="HKQuantityTypeIdentifierHeight" unit="cm" value="180" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-10 09:00:00 +1100" startDate="2026-01-10 09:00:00 +1100" endDate="2026-01-10 09:00:00 +1100">
+    <MetadataEntry key="HKWasUserEntered" value="1"/>
+  </Record>
+  <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" unit="ms" value="42.5" sourceName="Demo Watch" sourceVersion="11.0" creationDate="2026-01-15 06:40:00 +1100" startDate="2026-01-15 06:39:00 +1100" endDate="2026-01-15 06:40:00 +1100">
+    <HeartRateVariabilityMetadataList>
+      <InstantaneousBeatsPerMinute bpm="60" time="6:39:10.00 am"/>
+      <InstantaneousBeatsPerMinute bpm="62" time="6:39:20.00 am"/>
+      <InstantaneousBeatsPerMinute bpm="58" time="6:39:30.00 am"/>
+    </HeartRateVariabilityMetadataList>
+  </Record>
   <Correlation type="HKCorrelationTypeIdentifierBloodPressure" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100">
     <Record type="HKQuantityTypeIdentifierBloodPressureSystolic" unit="mmHg" value="118" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
     <Record type="HKQuantityTypeIdentifierBloodPressureDiastolic" unit="mmHg" value="76" sourceName="Demo Phone" sourceVersion="18.0" creationDate="2026-01-14 08:00:00 +1100" startDate="2026-01-14 08:00:00 +1100" endDate="2026-01-14 08:00:00 +1100"/>
   </Correlation>
   <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="25.0" durationUnit="min" totalDistance="4.2" totalDistanceUnit="km" totalEnergyBurned="280" totalEnergyBurnedUnit="kcal" sourceName="Demo Watch" sourceVersion="11.0" device="&lt;&lt;HKDevice: 0x0, name:Demo Watch&gt;&gt;" creationDate="2026-01-15 07:26:00 +1100" startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100">
     <WorkoutEvent type="HKWorkoutEventTypePause" date="2026-01-15 07:10:00 +1100"/>
+    <WorkoutStatistics type="HKQuantityTypeIdentifierActiveEnergyBurned" startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100" sum="280" unit="kcal"/>
+    <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100" sum="4.2" unit="km" average="4.2"/>
     <WorkoutRoute sourceName="Demo Phone" sourceVersion="18.0" device="&lt;&lt;HKDevice: 0x0, name:Demo Phone&gt;&gt;" creationDate="2026-01-15 07:26:00 +1100" startDate="2026-01-15 07:00:00 +1100" endDate="2026-01-15 07:25:00 +1100">
       <FileReference path="/workout-routes/route_2026-01-15_7.25am.gpx"/>
     </WorkoutRoute>

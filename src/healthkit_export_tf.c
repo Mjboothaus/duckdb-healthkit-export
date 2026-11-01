@@ -5,6 +5,7 @@
 #include "zip_source.h"
 #include "parse_gpx.h"
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,12 @@ typedef struct {
 	size_t capacity;
 	char *filename;
 	char *path;
+	/* Optional named filters (NULL / unset = no filter). */
+	char *types_filter; /* comma-separated type or type_short tokens */
+	int has_start_filter;
+	int64_t start_filter_micros;
+	int has_end_filter;
+	int64_t end_filter_micros;
 } read_ah_bind_data;
 
 typedef struct {
@@ -38,6 +45,7 @@ static void DestroyBindData(void *ptr) {
 	free(b->rows);
 	free(b->filename);
 	free(b->path);
+	free(b->types_filter);
 	duckdb_free(b);
 }
 
@@ -45,8 +53,72 @@ static void DestroyInitData(void *ptr) {
 	duckdb_free(ptr);
 }
 
+static int token_matches(const char *hay_type, const char *hay_short, const char *token) {
+	if (!token || !token[0]) {
+		return 0;
+	}
+	while (*token && isspace((unsigned char)*token)) {
+		token++;
+	}
+	size_t len = strlen(token);
+	while (len > 0 && isspace((unsigned char)token[len - 1])) {
+		len--;
+	}
+	if (len == 0) {
+		return 0;
+	}
+	if (strncmp(hay_type, token, len) == 0 && hay_type[len] == '\0') {
+		return 1;
+	}
+	if (strncmp(hay_short, token, len) == 0 && hay_short[len] == '\0') {
+		return 1;
+	}
+	return 0;
+}
+
+static int record_passes_filters(const read_ah_bind_data *b, const ah_record *row) {
+	if (b->types_filter && b->types_filter[0]) {
+		int matched = 0;
+		const char *p = b->types_filter;
+		char tok[AH_TYPE_MAX];
+		while (*p) {
+			size_t i = 0;
+			while (*p && *p != ',' && i + 1 < sizeof(tok)) {
+				tok[i++] = *p++;
+			}
+			tok[i] = '\0';
+			if (*p == ',') {
+				p++;
+			}
+			if (token_matches(row->type, row->type_short, tok)) {
+				matched = 1;
+				break;
+			}
+		}
+		if (!matched) {
+			return 0;
+		}
+	}
+	int64_t start_micros = 0;
+	int has_start = row->start_date[0] && ah_parse_apple_date(row->start_date, NULL, 0, &start_micros);
+	if (b->has_start_filter) {
+		if (!has_start || start_micros < b->start_filter_micros) {
+			return 0;
+		}
+	}
+	if (b->has_end_filter) {
+		if (!has_start || start_micros > b->end_filter_micros) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static void OnRecordCollect(const ah_record *row, void *userdata) {
 	read_ah_bind_data *b = (read_ah_bind_data *)userdata;
+	if (!record_passes_filters(b, row)) {
+		return;
+	}
 	if (b->count >= b->capacity) {
 		size_t ncap = b->capacity ? b->capacity * 2 : 64;
 		ah_record *nr = (ah_record *)realloc(b->rows, ncap * sizeof(ah_record));
@@ -144,6 +216,62 @@ static void ReadHealthkitExportBind(duckdb_bind_info info) {
 	bind->path = strdup(path_cstr);
 	duckdb_free(path_cstr);
 	duckdb_destroy_value(&path_val);
+
+	/* Named parameters: types (VARCHAR), start / end (VARCHAR Apple date or TIMESTAMPTZ). */
+	duckdb_value types_val = duckdb_bind_get_named_parameter(info, "types");
+	if (types_val && !duckdb_is_null_value(types_val)) {
+		char *types_cstr = duckdb_get_varchar(types_val);
+		if (types_cstr && types_cstr[0]) {
+			bind->types_filter = strdup(types_cstr);
+		}
+		if (types_cstr) {
+			duckdb_free(types_cstr);
+		}
+	}
+	if (types_val) {
+		duckdb_destroy_value(&types_val);
+	}
+
+	duckdb_value start_val = duckdb_bind_get_named_parameter(info, "start");
+	if (start_val && !duckdb_is_null_value(start_val)) {
+		char *s = duckdb_get_varchar(start_val);
+		int64_t micros = 0;
+		if (s && s[0] && ah_parse_apple_date(s, NULL, 0, &micros)) {
+			bind->has_start_filter = 1;
+			bind->start_filter_micros = micros;
+		} else if (s && s[0]) {
+			/* ISO-ish fallback: try TIMESTAMP_TZ micros via duckdb_get_timestamp_tz */
+			duckdb_timestamp ts = duckdb_get_timestamp_tz(start_val);
+			bind->has_start_filter = 1;
+			bind->start_filter_micros = ts.micros;
+		}
+		if (s) {
+			duckdb_free(s);
+		}
+	}
+	if (start_val) {
+		duckdb_destroy_value(&start_val);
+	}
+
+	duckdb_value end_val = duckdb_bind_get_named_parameter(info, "end");
+	if (end_val && !duckdb_is_null_value(end_val)) {
+		char *s = duckdb_get_varchar(end_val);
+		int64_t micros = 0;
+		if (s && s[0] && ah_parse_apple_date(s, NULL, 0, &micros)) {
+			bind->has_end_filter = 1;
+			bind->end_filter_micros = micros;
+		} else if (s && s[0]) {
+			duckdb_timestamp ts = duckdb_get_timestamp_tz(end_val);
+			bind->has_end_filter = 1;
+			bind->end_filter_micros = ts.micros;
+		}
+		if (s) {
+			duckdb_free(s);
+		}
+	}
+	if (end_val) {
+		duckdb_destroy_value(&end_val);
+	}
 
 	char err[256];
 	err[0] = '\0';
@@ -261,6 +389,10 @@ void RegisterReadHealthkitExportFunction(duckdb_connection connection) {
 
 	duckdb_logical_type varchar_type = duckdb_create_logical_type(DUCKDB_TYPE_VARCHAR);
 	duckdb_table_function_add_parameter(function, varchar_type);
+	/* Named filters — all optional VARCHAR (comma-separated types; Apple-style dates). */
+	duckdb_table_function_add_named_parameter(function, "types", varchar_type);
+	duckdb_table_function_add_named_parameter(function, "start", varchar_type);
+	duckdb_table_function_add_named_parameter(function, "end", varchar_type);
 	duckdb_destroy_logical_type(&varchar_type);
 
 	duckdb_table_function_set_bind(function, ReadHealthkitExportBind);

@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "parse_health.h"
@@ -39,3 +40,16 @@ ah_xml_source *ah_xml_source_open_member(const char *export_path, const char *lo
 /* Convenience: open path, parse with callbacks, close. */
 int ah_parse_health_path(const char *path, const ah_parse_callbacks *cb, ah_parse_stats *stats_out, char *err,
                          size_t err_len);
+
+/* Zip / dir inventory (no full inflate of members). */
+#define AH_ZIP_MEMBER_PATH_MAX 512
+
+typedef struct {
+	char path[AH_ZIP_MEMBER_PATH_MAX];
+	uint64_t uncompressed_size;
+	uint64_t compressed_size;
+	char kind[32]; /* export_xml | gpx | ecg_csv | cda | other | directory */
+} ah_zip_member;
+
+/* On success: *out heap array of *count members (caller free(*out)). Returns 0. */
+int ah_zip_list_members(const char *path, ah_zip_member **out, size_t *count, char *err, size_t err_len);

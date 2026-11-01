@@ -1,0 +1,95 @@
+# name: test/sql/additional_api.test
+# description: P1/P2 workout children, export info, me, inventory, record filters
+# group: [healthkit_export]
+
+require healthkit_export
+
+query II
+SELECT event_type_short, workout_activity_type_short
+FROM healthkit_workout_events('test/data/export.xml');
+----
+Pause	Running
+
+query III
+SELECT stat_type_short, sum, unit
+FROM healthkit_workout_statistics('test/data/export.xml')
+ORDER BY stat_type_short;
+----
+ActiveEnergyBurned	280.0	kcal
+DistanceWalkingRunning	4.2	km
+
+query I
+SELECT date_of_birth FROM healthkit_me('test/data/export.xml');
+----
+1990-01-15
+
+query I
+SELECT count(*) FROM healthkit_export_info('test/data/export.xml');
+----
+1
+
+query I
+SELECT count(*) FROM healthkit_zip_inventory('test/data/export.zip') WHERE kind = 'export_xml';
+----
+1
+
+query I
+SELECT count(*) FROM read_healthkit_export('test/data/export.xml', types := 'HeartRate');
+----
+2
+
+query I
+SELECT count(*) FROM read_healthkit_export('test/data/export.xml', types := 'StepCount,SleepAnalysis');
+----
+2
+
+query I
+SELECT type_short FROM healthkit_correlations('test/data/export.xml');
+----
+BloodPressure
+
+query II
+SELECT type_short, value FROM healthkit_correlation_members('test/data/export.xml') ORDER BY type_short;
+----
+BloodPressureDiastolic	76.0
+BloodPressureSystolic	118.0
+
+query III
+SELECT parent_kind, parent_type_short, key
+FROM healthkit_metadata('test/data/export.xml')
+WHERE parent_type_short = 'Height';
+----
+record	Height	HKWasUserEntered
+
+query I
+SELECT count(*) FROM read_healthkit_export('test/data/export.xml');
+----
+9
+
+query I
+SELECT count(*) FROM healthkit_heartbeat_points('test/data/export.xml');
+----
+3
+
+query II
+SELECT bpm, parent_type_short FROM healthkit_heartbeat_points('test/data/export.xml') ORDER BY bpm;
+----
+58.0	HeartRateVariabilitySDNN
+60.0	HeartRateVariabilitySDNN
+62.0	HeartRateVariabilitySDNN
+
+query II
+SELECT classification, n_samples FROM healthkit_ecg_recordings('test/data/export.zip');
+----
+Sinus Rhythm	4
+
+query I
+SELECT count(*) FROM healthkit_ecg_samples('test/data/export.zip');
+----
+4
+
+# Identity fields must never appear as columns/values from ECG CSV Name header
+query I
+SELECT count(*) FROM healthkit_ecg_recordings('test/data/export.zip') WHERE classification = 'Demo Subject';
+----
+0

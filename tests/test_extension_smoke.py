@@ -15,7 +15,7 @@ def test_extension_loads(con, fixture_zip):
     n = con.execute(
         f"SELECT count(*) FROM read_healthkit_export('{fixture_zip.as_posix()}')"
     ).fetchone()[0]
-    assert n == 7
+    assert n == 9
 
 
 def test_fixture_record_count_zip_and_xml(con, fixture_zip, fixture_xml):
@@ -25,15 +25,15 @@ def test_fixture_record_count_zip_and_xml(con, fixture_zip, fixture_xml):
     n_xml = con.execute(
         f"SELECT count(*) FROM read_healthkit_export('{sql_path(fixture_xml)}')"
     ).fetchone()[0]
-    assert n_zip == 7
-    assert n_xml == 7
+    assert n_zip == 9
+    assert n_xml == 9
 
 
 def test_fixture_matches_golden_csv(con, fixture_zip, golden_records_csv):
     golden = pd.read_csv(golden_records_csv, dtype=str).fillna("")
     got = duck_records(con, fixture_zip)
 
-    assert len(got) == len(golden) == 7
+    assert len(got) == len(golden) == 9
 
     # Match on type + source + value/value_text (two HeartRate rows share source).
     remaining = got.copy()
@@ -123,7 +123,7 @@ def test_directory_path(con, fixture_xml, repo_root):
     n = con.execute(
         f"SELECT count(*) FROM read_healthkit_export('{sql_path(data_dir)}')"
     ).fetchone()[0]
-    assert n == 7
+    assert n == 9
 
 
 def test_fixture_workout_routes(con, fixture_zip):

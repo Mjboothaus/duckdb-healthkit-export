@@ -27,9 +27,11 @@ Related: [DESIGN.md](DESIGN.md) · [RELEASE_PLAN.md](RELEASE_PLAN.md) · [VERSIO
 |--|--|
 | Branding fix PR | [#2685](https://github.com/duckdb/community-extensions/pull/2685) **merged** — `healthkit_export` live; `apple_health` listing removed |
 | First listing (superseded) | [#2653](https://github.com/duckdb/community-extensions/pull/2653) briefly used id `apple_health` |
-| Current name | **`healthkit_export`** (v0.3.1) |
+| Current name | **`healthkit_export`** (v0.3.1 on CDN; additional API pending next `repo.ref`) |
 | CDN (example) | `https://community-extensions.duckdb.org/v2.0.0/osx_arm64/healthkit_export.duckdb_extension.gz` |
-| Verified | Local unsigned LOAD on DuckDB **2.x**; community CDN rebuild after `repo.ref` bump |
+| DuckDB 2.0 rebuild | [community-extensions#3397](https://github.com/duckdb/community-extensions/pull/3397) **merged** |
+| Verified | Community `INSTALL`/`LOAD` on DuckDB **2.0.0**; local unsigned for development |
+| SQL surface | See project [README](../README.md) — core + P1–P4 additional TFs (after merge/tag, bump `repo.ref` to publish) |
 
 ## What “community extension” means
 
@@ -37,7 +39,7 @@ DuckDB’s [community extensions](https://duckdb.org/community_extensions/) are 
 uploads of your `.duckdb_extension` binaries.
 
 1. You open a PR on [duckdb/community-extensions](https://github.com/duckdb/community-extensions)
-   with a single descriptor: `extensions/apple_health/description.yml`.
+   with a single descriptor: `extensions/healthkit_export/description.yml`.
 2. Their CI clones **this** GitHub repo at a **pinned commit SHA** (`repo.ref`).
 3. They build with the shared extension toolchain for supported platforms.
 4. DuckDB **signs** the binaries and hosts them.
@@ -104,14 +106,14 @@ and keep this doc for when the official path opens.
 
 File location in the **community-extensions** fork:
 
-`extensions/apple_health/description.yml`
+`extensions/healthkit_export/description.yml`
 
 ```yaml
 extension:
   name: healthkit_export
   description: >
     Read Health app export.zip / export.xml as typed DuckDB tables
-    (records, workouts, activity summaries, workout routes and GPX points).
+    (records, workouts, routes/GPX, correlations, metadata, HRV BPM, privacy-safe ECG, …).
   version: 0.1.0
   language: C
   build: cmake
@@ -136,6 +138,8 @@ docs:
   extended_description: |
     HealthKit-shaped scanner on DuckDB's stable C API. Large exports should be
     scanned once and materialised to Parquet or a local DuckDB file (see project README).
+    ECG helpers omit Name and Date of Birth CSV headers. Nested Correlation records
+    are available via healthkit_correlation_members (not double-counted in read_healthkit_export).
     Does not include Python maps/Photos helpers — those live in the same GitHub
     repo as an optional companion package.
 ```
