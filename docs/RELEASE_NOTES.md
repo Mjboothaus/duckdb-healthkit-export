@@ -1,5 +1,60 @@
 # Release notes
 
+## v0.4.0 — expanded SQL API + DuckDB 2.0 (2026-11-01)
+
+**Bigger Health export surface in SQL**, built for **DuckDB 2.0.0**, still on the **stable C extension API**.
+
+### Install (after community `repo.ref` bump lands)
+
+```sql
+INSTALL healthkit_export FROM community;
+LOAD healthkit_export;
+-- or FORCE INSTALL healthkit_export FROM community; LOAD healthkit_export;
+```
+
+Requires DuckDB **2.0.0+** on a **native** platform (macOS arm64, Linux, Windows). **Wasm** and **osx_amd64** remain excluded.
+
+### Discoverability (agents / SQL clients)
+
+Stable C API cannot populate `duckdb_functions()` descriptions or rename positional `col0`. Use:
+
+```sql
+SELECT function_name, parameters, description, example, categories
+FROM healthkit_export_functions()
+ORDER BY 1;
+```
+
+### New / expanded table functions
+
+| Function | Role |
+|----------|------|
+| `read_healthkit_export(path, types/start/end := …)` | Top-level records + optional named filters |
+| `healthkit_workout_events` / `healthkit_workout_statistics` | Workout children |
+| `healthkit_export_info` / `healthkit_me` / `healthkit_zip_inventory` | Export catalogue / Me / zip members |
+| `healthkit_correlations` / `healthkit_correlation_members` / `healthkit_metadata` | Correlations + metadata |
+| `healthkit_heartbeat_points` | HRV IBPM points |
+| `healthkit_ecg_recordings` / `healthkit_ecg_samples` | ECG CSV sidecars (**no Name/DOB**) |
+| `healthkit_export_functions()` | Extension catalogue |
+
+Plus existing workouts, activity summaries, routes, and route points.
+
+### Privacy
+
+- `healthkit_me` exposes characteristics — treat as sensitive.
+- ECG parsers never return CSV **Name** or **Date of Birth** header fields.
+
+### Still deferred
+
+- Streaming execute (bind still buffers; large exports use more RAM)
+- P5 clinical / CDA / audiogram / vision TFs
+- Wasm
+
+### Source pin
+
+Git tag **v0.4.0**. Community listing should set `repo.ref` to that commit.
+
+---
+
 ## v0.3.0 — multi-platform native builds (2026-09-19)
 
 **Platforms.** `healthkit_export` builds for **macOS, Linux, and Windows**. A Health app `export.zip` is just a file — it does not require macOS to analyse.

@@ -1,10 +1,26 @@
 # Changelog
 
-## Unreleased
+## [0.4.0] — 2026-11-01
 
 ### Added
 
-- `healthkit_export_functions()` — zero-arg catalogue of public table functions with parameter names, descriptions, examples, and categories ([#41](https://github.com/Mjboothaus/duckdb-healthkit-export/issues/41)). Work-around for stable C API limits: `duckdb_functions()` still shows empty descriptions and positional `col0`.
+- Workout children: `healthkit_workout_events(path)`, `healthkit_workout_statistics(path)`.
+- Export catalogue: `healthkit_export_info(path)`, `healthkit_me(path)`, `healthkit_zip_inventory(path)`.
+- Correlations: `healthkit_correlations(path)`, `healthkit_correlation_members(path)`, `healthkit_metadata(path)`.
+- Series / ECG: `healthkit_heartbeat_points(path)`, `healthkit_ecg_recordings(path)`, `healthkit_ecg_samples(path)` (ECG **omits Name / Date of Birth** headers).
+- Named filters on `read_healthkit_export`: `types`, `start`, `end` (VARCHAR).
+- `healthkit_export_functions()` — zero-arg agent catalogue (parameter names, descriptions, examples, categories) ([#41](https://github.com/Mjboothaus/duckdb-healthkit-export/issues/41)). Stable C API cannot set `FunctionDescription`; `duckdb_functions()` still shows empty descriptions and positional `col0`.
+- Design note: [docs/ADDITIONAL_API_PLAN.md](docs/ADDITIONAL_API_PLAN.md).
+
+### Changed
+
+- Target **DuckDB 2.0.0** as the CI/host build (`extension-ci-tools` → `v2.0-cyanoptera`). Keep **stable C Extension API** (`C_STRUCT`, `TARGET_DUCKDB_VERSION=v1.2.0`).
+- CI / community `exclude_archs` includes **`osx_amd64`** (no Intel macOS community builds from DuckDB 2.0).
+
+### Notes
+
+- DuckDB 2.0 storage version 69 by default; files written by 2.0 are not readable by DuckDB &lt; 2.0.
+- **P5** (clinical/CDA/audiogram/vision) and **streaming execute** remain deferred ([ROADMAP.md](docs/ROADMAP.md)).
 
 ## 0.3.1 — 2026-09-19
 
@@ -77,32 +93,6 @@ All notable changes to this project are documented here.
 Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 Versioning: early **0.x** beta tags; breaking changes allowed until 1.0.
 
-## [Unreleased]
-
-### Added
-- `healthkit_workout_events(path)` and `healthkit_workout_statistics(path)` (workout children).
-- `healthkit_export_info(path)`, `healthkit_me(path)`, `healthkit_zip_inventory(path)`.
-- `healthkit_correlations(path)`, `healthkit_correlation_members(path)`, `healthkit_metadata(path)`.
-- `healthkit_heartbeat_points(path)`, `healthkit_ecg_recordings(path)`, `healthkit_ecg_samples(path)` (ECG **omits Name / Date of Birth** headers).
-- Named filters on `read_healthkit_export`: `types`, `start`, `end` (VARCHAR).
-- Design note: [docs/ADDITIONAL_API_PLAN.md](docs/ADDITIONAL_API_PLAN.md).
-
-### Changed
-- Target **DuckDB 2.0.0 LTS** as the CI/host build (`extension-ci-tools` → `v2.0-cyanoptera`, `duckdb_version: v2.0.0`).
-- Keep **stable C Extension API** (`C_STRUCT`, `TARGET_DUCKDB_VERSION=v1.2.0`, V1 entrypoint). C API v2 is experimental and not required.
-- CI `exclude_archs` adds **`osx_amd64`** (community extensions no longer built for Intel macOS from DuckDB 2.0).
-
-### Notes
-- Community `healthkit_export` rebuilt for DuckDB 2.0.0 ([community-extensions#3397](https://github.com/duckdb/community-extensions/pull/3397)).
-- DuckDB 2.0 uses storage version 69 by default; files written by 2.0 are not readable by DuckDB &lt; 2.0.
-
-### Planned
-
-- Streaming table-function execute (bounded memory)
-- Correlations / metadata / ECG table functions (see ADDITIONAL_API_PLAN)
-
-See [ROADMAP.md](docs/ROADMAP.md).
-
 ## [0.1.0-beta] — 2026-08-29
 
 First public **developer beta**.
@@ -127,7 +117,8 @@ First public **developer beta**.
 
 Full notes: [RELEASE_NOTES.md](docs/RELEASE_NOTES.md).
 
-[Unreleased]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Mjboothaus/duckdb-healthkit-export/compare/v0.1.1...v0.2.0
