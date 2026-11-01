@@ -61,7 +61,8 @@ See [ADDITIONAL_API_PLAN.md](ADDITIONAL_API_PLAN.md) and README SQL API:
 
 ## Near-term
 
-- [ ] Tag **v0.4.0** (P1–P4 API + `healthkit_export_functions` catalogue) and community `description.yml` `repo.ref` bump
+- [x] Tag **v0.4.0** (P1–P4 API + `healthkit_export_functions` catalogue)
+- [ ] Community `description.yml` `repo.ref` bump to **v0.4.0** (CDN rebuild)
 - [ ] **Marimo** `map_walks` / `walk_stories`: smoke-test or mark experimental in docs (library Folium path is source of truth)
 - [ ] Keep Python package optional; no PyPI required yet
 
