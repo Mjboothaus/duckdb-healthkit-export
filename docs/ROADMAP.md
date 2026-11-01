@@ -57,20 +57,21 @@ See [ADDITIONAL_API_PLAN.md](ADDITIONAL_API_PLAN.md) and README SQL API:
 - [x] Named record filters `types` / `start` / `end`
 - [x] Correlations + correlation members + metadata
 - [x] Heartbeat points (HRV IBPM) + ECG recordings/samples (Name/DOB omitted)
+- [x] `healthkit_export_functions()` catalogue for agent discoverability ([#41](https://github.com/Mjboothaus/duckdb-healthkit-export/issues/41))
 
 ## Near-term
 
-- [ ] Community `description.yml` `repo.ref` bump after additional-API merge + tag
+- [ ] Tag **v0.4.0** (P1–P4 API + `healthkit_export_functions` catalogue) and community `description.yml` `repo.ref` bump
 - [ ] **Marimo** `map_walks` / `walk_stories`: smoke-test or mark experimental in docs (library Folium path is source of truth)
 - [ ] Keep Python package optional; no PyPI required yet
-- [ ] Streaming execute (performance list above)
 
-## After current API surface
+## Deferred (roadmap only — not current implementation)
 
-- Streaming + true filter pushdown during execute
+- **P5** clinical / CDA / audiogram / vision table functions — wait for fixtures + clear demand
+- **Streaming execute** and related performance items (see list above / [STREAMING_PLAN.md](STREAMING_PLAN.md))
 - Workout route ↔ workout join helpers (SQL examples / optional view)
-- Clinical / CDA / audiogram / vision (P5) if fixtures + demand
 - Optional: publish supplementary Python package
+- Upstream: C API support for `FunctionDescription` / named positional parameters so `duckdb_functions()` matches the catalogue TF
 
 
 ## Platforms

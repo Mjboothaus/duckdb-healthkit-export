@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.3.1] — 2026-09-19
+## Unreleased
+
+### Added
+
+- `healthkit_export_functions()` — zero-arg catalogue of public table functions with parameter names, descriptions, examples, and categories ([#41](https://github.com/Mjboothaus/duckdb-healthkit-export/issues/41)). Work-around for stable C API limits: `duckdb_functions()` still shows empty descriptions and positional `col0`.
+
+## 0.3.1 — 2026-09-19
 
 ### Fixed
 - Windows (and other vcpkg CI) builds: add `vcpkg.json` with **zlib** so CMake `find_package(ZLIB)` succeeds.
